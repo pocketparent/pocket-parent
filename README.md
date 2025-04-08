@@ -1,10 +1,10 @@
-# Pocket Parent - Baby Routine Tracking System
+# Hatchling - Baby Routine Tracking System
 
-This repository contains the Pocket Parent application, a comprehensive system for tracking and managing baby routines with real-time updates between caregivers.
+This repository contains the Hatchling application, a comprehensive system for tracking and managing baby routines with real-time updates between caregivers.
 
 ## Overview
 
-Pocket Parent helps parents and caregivers stay aligned with a baby's daily routine through:
+Hatchling helps parents and caregivers stay aligned with a baby's daily routine through:
 
 - Natural language parsing of routine descriptions
 - SMS integration for caregiver updates

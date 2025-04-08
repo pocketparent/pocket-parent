@@ -355,7 +355,7 @@ const RoutineDisplay = ({ userId }) => {
   return (
     <Box sx={{ flexGrow: 1, p: 2 }} className="routine-display">
       <Typography variant="h4" gutterBottom className="text-2xl md:text-4xl font-bold mb-4">
-        {routineData.babyName}'s Daily Routine
+        {routineData.babyName}'s Hatchling Routine
       </Typography>
       
       <Grid container spacing={3}>
