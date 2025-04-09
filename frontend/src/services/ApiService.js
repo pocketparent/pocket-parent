@@ -2,9 +2,12 @@ import axios from 'axios';
 
 class ApiService {
   constructor() {
-    this.baseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
+    // Support both environment variable names for compatibility
+    this.baseUrl = process.env.REACT_APP_API_URL || process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
     this.defaultUserId = process.env.REACT_APP_DEFAULT_USER_ID || 'test_user_123';
     this.pollingInterval = parseInt(process.env.REACT_APP_POLLING_INTERVAL || '5000', 10);
+    
+    console.log('API Service initialized with baseUrl:', this.baseUrl);
   }
 
   // Routine endpoints

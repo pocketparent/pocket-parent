@@ -1,395 +1,291 @@
 import os
 import json
-from datetime import datetime
-from dotenv import load_dotenv
+import logging
+import bcrypt
+from pathlib import Path
 
-# Load environment variables
-load_dotenv()
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class DataManager:
-    """
-    Service for handling data storage and retrieval for the Hatchling app.
-    Manages routines, caregiver updates, and user data.
-    """
+    """Data manager for handling user data, routines, and caregiver updates."""
     
-    def __init__(self, routines_file, caregiver_updates_file, users_file=None):
-        """
-        Initialize the DataManager with file paths for data storage.
+    def __init__(self, routines_file, caregiver_updates_file, users_file):
+        """Initialize the data manager.
         
         Args:
-            routines_file (str): Path to the routines JSON file
-            caregiver_updates_file (str): Path to the caregiver updates JSON file
-            users_file (str, optional): Path to the users JSON file
+            routines_file: Path to the routines JSON file
+            caregiver_updates_file: Path to the caregiver updates JSON file
+            users_file: Path to the users JSON file
         """
         self.routines_file = routines_file
         self.caregiver_updates_file = caregiver_updates_file
-        self.users_file = users_file or os.path.join(os.path.dirname(routines_file), 'users.json')
-        
-        # Ensure data directory exists
-        self._ensure_data_directory()
-        
-        # Ensure all data files exist
-        self._ensure_file_exists(self.routines_file, [])
-        self._ensure_file_exists(self.caregiver_updates_file, [])
-        self._ensure_file_exists(self.users_file, [])
-    
-    def _ensure_data_directory(self):
-        """
-        Ensure that the data directory exists, creating it if it doesn't.
-        """
-        for file_path in [self.routines_file, self.caregiver_updates_file, self.users_file]:
-            directory = os.path.dirname(file_path)
-            if directory and not os.path.exists(directory):
-                os.makedirs(directory, exist_ok=True)
-                print(f"Created directory: {directory}")
-    
-    def _ensure_file_exists(self, file_path, default_content=None):
-        """
-        Ensure that a data file exists, creating it with default content if it doesn't.
-        
-        Args:
-            file_path (str): Path to the file
-            default_content (any, optional): Default content to write if file doesn't exist
-        """
-        if not os.path.exists(file_path):
-            # Ensure directory exists
-            directory = os.path.dirname(file_path)
-            if directory and not os.path.exists(directory):
-                os.makedirs(directory, exist_ok=True)
-                print(f"Created directory: {directory}")
-            
-            # Create file with default content
-            with open(file_path, 'w') as f:
-                json.dump(default_content or [], f)
-            print(f"Created file: {file_path}")
-    
-    def _read_json_file(self, file_path):
-        """
-        Read and parse a JSON file.
-        
-        Args:
-            file_path (str): Path to the JSON file
-            
-        Returns:
-            dict or list: The parsed JSON data
-        """
-        try:
-            with open(file_path, 'r') as f:
-                return json.load(f)
-        except (json.JSONDecodeError, FileNotFoundError):
-            # Return empty list if file is empty or doesn't exist
-            return []
-    
-    def _write_json_file(self, file_path, data):
-        """
-        Write data to a JSON file.
-        
-        Args:
-            file_path (str): Path to the JSON file
-            data (dict or list): Data to write
-            
-        Returns:
-            bool: True if successful, False otherwise
-        """
-        try:
-            # Ensure directory exists
-            directory = os.path.dirname(file_path)
-            if directory and not os.path.exists(directory):
-                os.makedirs(directory, exist_ok=True)
-                print(f"Created directory: {directory}")
-            
-            with open(file_path, 'w') as f:
-                json.dump(data, f, indent=2)
-            return True
-        except Exception as e:
-            print(f"Error writing to {file_path}: {str(e)}")
-            return False
+        self.users_file = users_file
+        self.initialize_data_files()
     
     def initialize_data_files(self):
-        """
-        Initialize all data files if they don't exist.
-        This method can be called explicitly during app startup.
-        """
-        # Ensure data directory exists
-        self._ensure_data_directory()
+        """Initialize data files if they don't exist."""
+        # Create directories if they don't exist
+        for file_path in [self.routines_file, self.caregiver_updates_file, self.users_file]:
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
         
-        # Ensure all data files exist
-        self._ensure_file_exists(self.routines_file, [])
-        self._ensure_file_exists(self.caregiver_updates_file, [])
-        self._ensure_file_exists(self.users_file, [])
+        # Initialize routines file
+        if not os.path.exists(self.routines_file) or os.path.getsize(self.routines_file) == 0:
+            with open(self.routines_file, 'w') as f:
+                json.dump({}, f)
         
-        print(f"Data files initialized: {self.routines_file}, {self.caregiver_updates_file}, {self.users_file}")
+        # Initialize caregiver updates file
+        if not os.path.exists(self.caregiver_updates_file) or os.path.getsize(self.caregiver_updates_file) == 0:
+            with open(self.caregiver_updates_file, 'w') as f:
+                json.dump({}, f)
+        
+        # Initialize users file with admin user
+        if not os.path.exists(self.users_file) or os.path.getsize(self.users_file) == 0:
+            admin_password = bcrypt.hashpw("Hatchling2025!".encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+            admin_user = {
+                "admin@hatchling.com": {
+                    "id": "admin",
+                    "email": "admin@hatchling.com",
+                    "name": "Admin User",
+                    "password": admin_password,
+                    "role": "admin",
+                    "subscription_status": "admin"
+                }
+            }
+            with open(self.users_file, 'w') as f:
+                json.dump(admin_user, f, indent=2)
     
-    # Routine methods
-    def save_routine(self, routine_data):
-        """
-        Save a routine to the routines file.
+    def get_routines(self, user_id='default'):
+        """Get all routines for a user.
         
         Args:
-            routine_data (dict): Routine data to save
+            user_id: User ID to get routines for
             
         Returns:
-            dict: The saved routine with generated ID
+            List of routines
         """
-        routines = self._read_json_file(self.routines_file)
-        
-        # Add timestamp and ID if not present
-        if 'created_at' not in routine_data:
-            routine_data['created_at'] = datetime.now().isoformat()
-        
-        if 'id' not in routine_data:
-            # Generate a simple ID based on timestamp
-            routine_data['id'] = f"routine_{len(routines) + 1}_{int(datetime.now().timestamp())}"
-        
-        # Add to routines list
-        routines.append(routine_data)
-        
-        # Save to file
-        self._write_json_file(self.routines_file, routines)
-        
-        return routine_data
+        try:
+            with open(self.routines_file, 'r') as f:
+                all_routines = json.load(f)
+            
+            # Return user's routines or empty list if user has no routines
+            return all_routines.get(user_id, [])
+        except Exception as e:
+            logger.error(f"Error getting routines: {str(e)}")
+            return []
     
-    def get_all_routines(self):
-        """
-        Get all routines.
-        
-        Returns:
-            list: All routines
-        """
-        return self._read_json_file(self.routines_file)
-    
-    def get_routines(self, user_id=None):
-        """
-        Get routines, optionally filtered by user ID.
+    def add_routine(self, routine, user_id='default'):
+        """Add a new routine for a user.
         
         Args:
-            user_id (str, optional): User ID to filter by
+            routine: Routine data to add
+            user_id: User ID to add routine for
             
         Returns:
-            list: Filtered routines or all routines if no user_id provided
+            Added routine data
         """
-        routines = self._read_json_file(self.routines_file)
-        if user_id:
-            return [r for r in routines if r.get('user_id') == user_id]
-        return routines
+        try:
+            with open(self.routines_file, 'r') as f:
+                all_routines = json.load(f)
+            
+            # Initialize user's routines if they don't exist
+            if user_id not in all_routines:
+                all_routines[user_id] = []
+            
+            # Add the routine
+            all_routines[user_id].append(routine)
+            
+            with open(self.routines_file, 'w') as f:
+                json.dump(all_routines, f, indent=2)
+            
+            return routine
+        except Exception as e:
+            logger.error(f"Error adding routine: {str(e)}")
+            return {"error": str(e)}
     
-    def get_user_routines(self, user_id):
-        """
-        Get routines for a specific user.
+    def get_caregiver_updates(self, user_id='default'):
+        """Get all caregiver updates for a user.
         
         Args:
-            user_id (str): User ID
+            user_id: User ID to get updates for
             
         Returns:
-            list: Routines for the specified user
+            List of caregiver updates
         """
-        routines = self._read_json_file(self.routines_file)
-        return [r for r in routines if r.get('user_id') == user_id]
+        try:
+            with open(self.caregiver_updates_file, 'r') as f:
+                all_updates = json.load(f)
+            
+            # Return user's updates or empty list if user has no updates
+            return all_updates.get(user_id, [])
+        except Exception as e:
+            logger.error(f"Error getting caregiver updates: {str(e)}")
+            return []
     
-    def get_baby_routines(self, baby_id):
-        """
-        Get routines for a specific baby.
+    def add_caregiver_update(self, update, user_id='default'):
+        """Add a new caregiver update for a user.
         
         Args:
-            baby_id (str): Baby ID
+            update: Update data to add
+            user_id: User ID to add update for
             
         Returns:
-            list: Routines for the specified baby
+            Added update data
         """
-        routines = self._read_json_file(self.routines_file)
-        return [r for r in routines if r.get('baby_id') == baby_id]
+        try:
+            with open(self.caregiver_updates_file, 'r') as f:
+                all_updates = json.load(f)
+            
+            # Initialize user's updates if they don't exist
+            if user_id not in all_updates:
+                all_updates[user_id] = []
+            
+            # Add the update
+            all_updates[user_id].append(update)
+            
+            with open(self.caregiver_updates_file, 'w') as f:
+                json.dump(all_updates, f, indent=2)
+            
+            return update
+        except Exception as e:
+            logger.error(f"Error adding caregiver update: {str(e)}")
+            return {"error": str(e)}
     
-    def add_routine(self, routine, user_id=None):
-        """
-        Add a new routine.
+    def get_user(self, user_id='default'):
+        """Get user data.
         
         Args:
-            routine (dict): Routine data
-            user_id (str, optional): User ID to associate with the routine
+            user_id: User ID or email to get data for
             
         Returns:
-            dict: The saved routine
+            User data
         """
-        if user_id:
-            routine['user_id'] = user_id
-        
-        return self.save_routine(routine)
+        try:
+            with open(self.users_file, 'r') as f:
+                all_users = json.load(f)
+            
+            # Check if user_id is an email
+            if '@' in user_id and user_id in all_users:
+                return all_users[user_id]
+            
+            # Otherwise, search by ID
+            for email, user_data in all_users.items():
+                if user_data.get('id') == user_id:
+                    return user_data
+            
+            return None
+        except Exception as e:
+            logger.error(f"Error getting user: {str(e)}")
+            return None
     
-    # Caregiver update methods
-    def save_caregiver_update(self, update_data):
-        """
-        Save a caregiver update to the updates file.
+    def update_user(self, user_id, user_data):
+        """Update user data.
         
         Args:
-            update_data (dict): Update data to save
+            user_id: User ID or email to update
+            user_data: New user data
             
         Returns:
-            dict: The saved update with generated ID
+            Updated user data
         """
-        updates = self._read_json_file(self.caregiver_updates_file)
-        
-        # Add timestamp and ID if not present
-        if 'timestamp' not in update_data:
-            update_data['timestamp'] = datetime.now().isoformat()
-        
-        if 'id' not in update_data:
-            # Generate a simple ID based on timestamp
-            update_data['id'] = f"update_{len(updates) + 1}_{int(datetime.now().timestamp())}"
-        
-        # Add to updates list
-        updates.append(update_data)
-        
-        # Save to file
-        self._write_json_file(self.caregiver_updates_file, updates)
-        
-        return update_data
-    
-    def get_caregiver_updates(self, user_id=None):
-        """
-        Get caregiver updates, optionally filtered by user ID.
-        
-        Args:
-            user_id (str, optional): User ID to filter by
+        try:
+            with open(self.users_file, 'r') as f:
+                all_users = json.load(f)
             
-        Returns:
-            list: Filtered updates or all updates if no user_id provided
-        """
-        updates = self._read_json_file(self.caregiver_updates_file)
-        if user_id:
-            return [u for u in updates if u.get('user_id') == user_id]
-        return updates
-    
-    def get_user_updates(self, user_id):
-        """
-        Get updates for a specific user.
-        
-        Args:
-            user_id (str): User ID
+            # If user_id is an email, use it directly
+            if '@' in user_id:
+                email = user_id
+            else:
+                # Otherwise, find the email by ID
+                email = None
+                for e, data in all_users.items():
+                    if data.get('id') == user_id:
+                        email = e
+                        break
             
-        Returns:
-            list: Updates for the specified user
-        """
-        updates = self._read_json_file(self.caregiver_updates_file)
-        return [u for u in updates if u.get('user_id') == user_id]
-    
-    def get_baby_updates(self, baby_id):
-        """
-        Get updates for a specific baby.
-        
-        Args:
-            baby_id (str): Baby ID
+            # If email not found, use the email from user_data
+            if not email and 'email' in user_data:
+                email = user_data['email']
             
-        Returns:
-            list: Updates for the specified baby
-        """
-        updates = self._read_json_file(self.caregiver_updates_file)
-        return [u for u in updates if u.get('baby_id') == baby_id]
-    
-    def add_caregiver_update(self, update, user_id=None):
-        """
-        Add a new caregiver update.
-        
-        Args:
-            update (dict): Update data
-            user_id (str, optional): User ID to associate with the update
+            # If still no email, return error
+            if not email:
+                return {"error": "User not found and no email provided"}
             
-        Returns:
-            dict: The saved update
-        """
-        if user_id:
-            update['user_id'] = user_id
-        
-        return self.save_caregiver_update(update)
-    
-    # User methods
-    def save_user(self, user_data):
-        """
-        Save a user to the users file.
-        
-        Args:
-            user_data (dict): User data to save
+            # Update or create the user
+            all_users[email] = user_data
             
-        Returns:
-            dict: The saved user with generated ID
-        """
-        users = self._read_json_file(self.users_file)
-        
-        # Check if user already exists
-        existing_user = next((u for u in users if u.get('id') == user_data.get('id')), None)
-        
-        if existing_user:
-            # Update existing user
-            for key, value in user_data.items():
-                existing_user[key] = value
-            
-            # Save to file
-            self._write_json_file(self.users_file, users)
-            
-            return existing_user
-        else:
-            # Add timestamp and ID if not present
-            if 'created_at' not in user_data:
-                user_data['created_at'] = datetime.now().isoformat()
-            
-            if 'id' not in user_data:
-                # Generate a simple ID based on timestamp
-                user_data['id'] = f"user_{len(users) + 1}_{int(datetime.now().timestamp())}"
-            
-            # Set default subscription status if not present
-            if 'subscription_status' not in user_data:
-                user_data['subscription_status'] = 'trial'
-            
-            # Add to users list
-            users.append(user_data)
-            
-            # Save to file
-            self._write_json_file(self.users_file, users)
+            with open(self.users_file, 'w') as f:
+                json.dump(all_users, f, indent=2)
             
             return user_data
+        except Exception as e:
+            logger.error(f"Error updating user: {str(e)}")
+            return {"error": str(e)}
     
-    def get_user(self, user_id):
-        """
-        Get a user by ID.
+    def authenticate_user(self, email, password):
+        """Authenticate a user.
         
         Args:
-            user_id (str): User ID
+            email: User email
+            password: User password
             
         Returns:
-            dict: User data or None if not found
+            User data if authentication successful, None otherwise
         """
-        users = self._read_json_file(self.users_file)
-        return next((u for u in users if u.get('id') == user_id), None)
+        try:
+            user = self.get_user(email)
+            if not user:
+                return None
+            
+            # Check if password is stored as bcrypt hash
+            if user.get('password', '').startswith('$2b$'):
+                # Verify bcrypt hash
+                if bcrypt.checkpw(password.encode('utf-8'), user['password'].encode('utf-8')):
+                    return user
+            else:
+                # For backward compatibility, check plain text password
+                if user.get('password') == password:
+                    return user
+            
+            return None
+        except Exception as e:
+            logger.error(f"Error authenticating user: {str(e)}")
+            return None
     
-    def get_all_users(self):
-        """
-        Get all users.
-        
-        Returns:
-            list: All users
-        """
-        return self._read_json_file(self.users_file)
-    
-    def update_user_subscription(self, user_id, subscription_status):
-        """
-        Update a user's subscription status.
+    def create_user(self, email, password, name, role='user'):
+        """Create a new user.
         
         Args:
-            user_id (str): User ID
-            subscription_status (str): New subscription status ('active', 'inactive', 'trial')
+            email: User email
+            password: User password
+            name: User name
+            role: User role
             
         Returns:
-            dict: Updated user data or None if user not found
+            Created user data
         """
-        users = self._read_json_file(self.users_file)
-        user = next((u for u in users if u.get('id') == user_id), None)
-        
-        if user:
-            user['subscription_status'] = subscription_status
-            user['updated_at'] = datetime.now().isoformat()
+        try:
+            # Check if user already exists
+            if self.get_user(email):
+                return {"error": "User already exists"}
             
-            # Save to file
-            self._write_json_file(self.users_file, users)
+            # Hash the password
+            hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
             
-            return user
-        
-        return None
+            # Create user data
+            user_id = email.split('@')[0]  # Simple ID from email
+            user_data = {
+                "id": user_id,
+                "email": email,
+                "name": name,
+                "password": hashed_password,
+                "role": role,
+                "subscription_status": "trial"
+            }
+            
+            # Update users file
+            return self.update_user(email, user_data)
+        except Exception as e:
+            logger.error(f"Error creating user: {str(e)}")
+            return {"error": str(e)}

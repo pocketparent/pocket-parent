@@ -6,9 +6,14 @@ from data_manager import DataManager
 from parser_service import ParserService
 from sms_service import SMSService
 from services.openai_service import OpenAIService
+from socket_service import SocketService
+from init_db import init_database
 
 # Load environment variables
 load_dotenv()
+
+# Initialize database
+init_database()
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -19,12 +24,21 @@ CORS(app, resources={r"/*": {"origins": CORS_ALLOWED_ORIGINS}})
 
 # Data storage paths
 DATA_DIR = os.getenv('DATA_DIR', 'data')
-ROUTINES_FILE = os.path.join(os.path.dirname(__file__), DATA_DIR, 
-                            os.getenv('ROUTINES_FILE', 'routines.json'))
-CAREGIVER_UPDATES_FILE = os.path.join(os.path.dirname(__file__), DATA_DIR, 
-                                    os.getenv('CAREGIVER_UPDATES_FILE', 'caregiver_updates.json'))
-USERS_FILE = os.path.join(os.path.dirname(__file__), DATA_DIR, 
-                        os.getenv('USERS_FILE', 'users.json'))
+
+# Handle absolute or relative paths for data directory
+if os.path.isabs(DATA_DIR):
+    # If DATA_DIR is an absolute path, use it directly
+    ROUTINES_FILE = os.path.join(DATA_DIR, os.getenv('ROUTINES_FILE', 'routines.json'))
+    CAREGIVER_UPDATES_FILE = os.path.join(DATA_DIR, os.getenv('CAREGIVER_UPDATES_FILE', 'caregiver_updates.json'))
+    USERS_FILE = os.path.join(DATA_DIR, os.getenv('USERS_FILE', 'users.json'))
+else:
+    # If DATA_DIR is a relative path, join with the current directory
+    ROUTINES_FILE = os.path.join(os.path.dirname(__file__), DATA_DIR, 
+                                os.getenv('ROUTINES_FILE', 'routines.json'))
+    CAREGIVER_UPDATES_FILE = os.path.join(os.path.dirname(__file__), DATA_DIR, 
+                                        os.getenv('CAREGIVER_UPDATES_FILE', 'caregiver_updates.json'))
+    USERS_FILE = os.path.join(os.path.dirname(__file__), DATA_DIR, 
+                            os.getenv('USERS_FILE', 'users.json'))
 
 # Initialize services
 data_manager = DataManager(ROUTINES_FILE, CAREGIVER_UPDATES_FILE, USERS_FILE)
@@ -32,6 +46,7 @@ parser_service = ParserService()
 # Fix: SMSService only takes one argument (data_manager)
 sms_service = SMSService(data_manager)
 openai_service = OpenAIService()
+socket_service = SocketService(app, data_manager)
 
 # Root route handler
 @app.route('/')
@@ -142,22 +157,28 @@ def create_or_update_user():
     except Exception as e:
         return jsonify({"error": str(e)}), 400
 
-# Parse routine endpoint
-@app.route('/parse-routine', methods=['POST'])
-def parse_routine():
+# User login endpoint
+@app.route('/login', methods=['POST'])
+def login():
     try:
         data = request.get_json()
-        text = data.get('text', '')
-        user_id = data.get('user_id', 'default')
-        baby_id = data.get('baby_id', 'default')
+        email = data.get('email')
+        password = data.get('password')
         
-        # Parse the routine text
-        parsed_routine = parser_service.parse_routine(text)
+        if not email or not password:
+            return jsonify({"error": "Email and password are required"}), 400
         
-        # Add the routine to the database
-        result = data_manager.add_routine(parsed_routine, user_id)
+        # Authenticate user
+        user = data_manager.authenticate_user(email, password)
         
-        return jsonify(result)
+        if not user:
+            return jsonify({"error": "Invalid email or password"}), 401
+        
+        # Don't return the password in the response
+        if 'password' in user:
+            user = {k: v for k, v in user.items() if k != 'password'}
+        
+        return jsonify({"success": True, "user": user})
     except Exception as e:
         return jsonify({"error": str(e)}), 400
 
@@ -247,11 +268,14 @@ def get_suggestions():
 
 if __name__ == '__main__':
     # Create data directory if it doesn't exist
-    os.makedirs(os.path.join(os.path.dirname(__file__), DATA_DIR), exist_ok=True)
+    if os.path.isabs(DATA_DIR):
+        os.makedirs(DATA_DIR, exist_ok=True)
+    else:
+        os.makedirs(os.path.join(os.path.dirname(__file__), DATA_DIR), exist_ok=True)
     
     # Initialize data files if they don't exist
     data_manager.initialize_data_files()
     
-    # Run the Flask app
+    # Run the Flask app with Socket.IO
     port = int(os.getenv('PORT', 8000))
-    app.run(host='0.0.0.0', port=port, debug=(os.getenv('DEBUG', 'False').lower() == 'true'))
+    socket_service.run(host='0.0.0.0', port=port, debug=(os.getenv('DEBUG', 'False').lower() == 'true'))
