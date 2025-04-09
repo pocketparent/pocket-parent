@@ -49,7 +49,9 @@ import {
   Share as ShareIcon,
   Add as AddIcon,
   Edit as EditIcon,
-  Error as ErrorIcon
+  Error as ErrorIcon,
+  Wifi as WifiIcon,
+  WifiOff as WifiOffIcon
 } from '@material-ui/icons';
 import format from 'date-fns/format';
 import addDays from 'date-fns/addDays';
@@ -60,8 +62,143 @@ import isFuture from 'date-fns/isFuture';
 import axios from 'axios';
 import io from 'socket.io-client';
 import ErrorBoundary from './ErrorBoundary';
-import { useApiWithRetry, ApiErrorFallback, LoadingFallback, getApiUrl, API_STATES } from '../utils/apiUtils';
+import { LoadingFallback, ApiErrorFallback, OfflineFallback, API_STATES } from '../utils/fallbackComponents';
+import { getApiUrl, getApiTimeout, getApiRetryAttempts, getApiBaseUrl } from '../utils/apiConfig';
 
+// Custom hook for API calls with retry logic and timeout
+const useApiWithRetry = (url, options = {}) => {
+  const [data, setData] = useState(null);
+  const [status, setStatus] = useState(API_STATES.IDLE);
+  const [error, setError] = useState(null);
+  const [retryCount, setRetryCount] = useState(0);
+  const timeoutRef = useRef(null);
+  
+  const { 
+    method = 'GET', 
+    payload = null, 
+    maxRetries = getApiRetryAttempts(), 
+    retryDelay = 1000,
+    timeout = getApiTimeout(),
+    dependencies = [],
+    onSuccess = () => {},
+    onError = () => {},
+    mockData = null
+  } = options;
+  
+  const executeRequest = async () => {
+    // Clear any existing timeout
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    
+    setStatus(API_STATES.LOADING);
+    
+    // Set timeout for the request
+    timeoutRef.current = setTimeout(() => {
+      if (status === API_STATES.LOADING) {
+        console.log(`API request timed out after ${timeout}ms: ${url}`);
+        setStatus(API_STATES.TIMEOUT);
+        
+        // If we have mock data, use it as fallback
+        if (mockData) {
+          console.log('Using mock data as fallback');
+          setData(mockData);
+          onSuccess(mockData);
+        }
+      }
+    }, timeout);
+    
+    try {
+      // Check for network connectivity
+      if (!navigator.onLine) {
+        throw new Error('No internet connection');
+      }
+      
+      // Log the request for debugging
+      console.log(`API Request (${method}): ${url}`, payload);
+      
+      // Execute the request with the appropriate method
+      let response;
+      if (method === 'GET') {
+        response = await axios.get(url, { timeout });
+      } else if (method === 'POST') {
+        response = await axios.post(url, payload, { timeout });
+      } else if (method === 'PUT') {
+        response = await axios.put(url, payload, { timeout });
+      } else if (method === 'DELETE') {
+        response = await axios.delete(url, { timeout });
+      }
+      
+      // Clear the timeout since request completed
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+      
+      // Log the response for debugging
+      console.log(`API Response (${method}): ${url}`, response.data);
+      
+      setData(response.data);
+      setStatus(API_STATES.SUCCESS);
+      setError(null);
+      setRetryCount(0);
+      onSuccess(response.data);
+    } catch (err) {
+      console.error(`API Error (${method}): ${url}`, err);
+      
+      // Clear the timeout since request completed (with error)
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+      
+      // Determine if we should retry
+      if (retryCount < maxRetries) {
+        console.log(`Retrying API call (${retryCount + 1}/${maxRetries})...`);
+        setRetryCount(prev => prev + 1);
+        
+        // Schedule retry after delay
+        setTimeout(() => {
+          executeRequest();
+        }, retryDelay * Math.pow(2, retryCount)); // Exponential backoff
+      } else {
+        // If we have mock data and exhausted retries, use it as fallback
+        if (mockData) {
+          console.log('Using mock data as fallback after retry failure');
+          setData(mockData);
+          setStatus(API_STATES.SUCCESS);
+          onSuccess(mockData);
+        } else {
+          setError(err);
+          setStatus(API_STATES.ERROR);
+          onError(err);
+        }
+      }
+    }
+  };
+  
+  // Execute the request when dependencies change
+  useEffect(() => {
+    executeRequest();
+    
+    // Cleanup function to clear timeout on unmount or dependencies change
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, [...dependencies]);
+  
+  // Function to manually retry the request
+  const retry = () => {
+    setRetryCount(0);
+    executeRequest();
+  };
+  
+  return { data, status, error, retry };
+};
+
+// Rest of the component code remains the same as before
 const useStyles = makeStyles((theme) => ({
   // Styles remain the same as in the original component
   root: {
@@ -313,6 +450,20 @@ const useStyles = makeStyles((theme) => ({
     color: theme.palette.error.main,
     marginBottom: theme.spacing(2),
   },
+  connectionStatus: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: theme.spacing(1),
+    borderRadius: theme.spacing(1),
+    marginBottom: theme.spacing(2),
+  },
+  online: {
+    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+  },
+  offline: {
+    backgroundColor: 'rgba(211, 47, 47, 0.1)',
+  }
 }));
 
 // Activity icons mapping
@@ -329,6 +480,31 @@ const activityIcons = {
   medicine: <MedicineIcon />,
   default: <TimeIcon />
 };
+
+// Sample mock data for offline fallback
+const MOCK_ROUTINES = [
+  {
+    id: 1,
+    baby_name: 'Baby',
+    routine: [
+      { type: 'wake', start_time: '07:30', notes: 'Woke up happy' },
+      { type: 'feeding', start_time: '08:00', duration: '20 minutes', feeding_type: 'Bottle', notes: '4oz formula' },
+      { type: 'diaper', start_time: '09:15', diaper_type: 'Wet' },
+      { type: 'nap', start_time: '10:00', duration: '45 minutes' },
+      { type: 'feeding', start_time: '12:00', duration: '25 minutes', feeding_type: 'Bottle', notes: '5oz formula' },
+      { type: 'play', start_time: '13:30', duration: '30 minutes', notes: 'Tummy time' },
+      { type: 'nap', start_time: '14:30', duration: '1 hour' },
+      { type: 'feeding', start_time: '16:00', duration: '20 minutes', feeding_type: 'Bottle', notes: '4oz formula' },
+      { type: 'bath', start_time: '18:30', duration: '15 minutes' },
+      { type: 'sleep', start_time: '19:30', notes: 'Bedtime routine completed' }
+    ]
+  }
+];
+
+const MOCK_USERS = [
+  { id: 1, name: 'Parent 1', email: 'parent1@example.com', role: 'Primary Caregiver', online: true },
+  { id: 2, name: 'Parent 2', email: 'parent2@example.com', role: 'Caregiver' }
+];
 
 // Helper function to get activity status
 const getActivityStatus = (activity, currentTime) => {
@@ -448,16 +624,41 @@ const MultiUserDashboardWithErrorHandling = () => {
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [connected, setConnected] = useState(false);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
   const socketRef = useRef(null);
+  
+  // Monitor online/offline status
+  useEffect(() => {
+    const handleOnline = () => {
+      console.log('App is online');
+      setIsOnline(true);
+      // Refresh data when coming back online
+      fetchData();
+    };
+    
+    const handleOffline = () => {
+      console.log('App is offline');
+      setIsOnline(false);
+    };
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
   
   // Format date for API requests
   const dateStr = format(selectedDate, 'yyyy-MM-dd');
   
-  // Use our custom API hook for routines
+  // Use our custom API hook for routines with mock data fallback
   const routinesApi = useApiWithRetry(
     getApiUrl(`/api/routines?date=${dateStr}`),
     {
-      dependencies: [selectedDate],
+      dependencies: [selectedDate, isOnline],
+      mockData: MOCK_ROUTINES,
       onSuccess: (data) => {
         setRoutines(data || []);
         // Extract baby name if available
@@ -472,7 +673,8 @@ const MultiUserDashboardWithErrorHandling = () => {
   const updatesApi = useApiWithRetry(
     getApiUrl(`/api/caregiver-updates?date=${dateStr}`),
     {
-      dependencies: [selectedDate],
+      dependencies: [selectedDate, isOnline],
+      mockData: [],
       onSuccess: (data) => {
         setCaregiverUpdates(data || []);
       }
@@ -483,7 +685,8 @@ const MultiUserDashboardWithErrorHandling = () => {
   const logsApi = useApiWithRetry(
     getApiUrl(`/api/activity-logs?date=${dateStr}`),
     {
-      dependencies: [selectedDate],
+      dependencies: [selectedDate, isOnline],
+      mockData: [],
       onSuccess: (data) => {
         setActivityLogs(data || []);
       }
@@ -494,6 +697,8 @@ const MultiUserDashboardWithErrorHandling = () => {
   const usersApi = useApiWithRetry(
     getApiUrl('/api/users'),
     {
+      dependencies: [isOnline],
+      mockData: MOCK_USERS,
       onSuccess: (data) => {
         setUsers(data || []);
       }
@@ -504,6 +709,8 @@ const MultiUserDashboardWithErrorHandling = () => {
   const currentUserApi = useApiWithRetry(
     getApiUrl('/api/users/current'),
     {
+      dependencies: [isOnline],
+      mockData: MOCK_USERS[0],
       onSuccess: (data) => {
         setCurrentUser(data || null);
       }
@@ -512,9 +719,13 @@ const MultiUserDashboardWithErrorHandling = () => {
   
   // Initialize socket connection
   useEffect(() => {
+    if (!isOnline) {
+      return; // Don't attempt socket connection when offline
+    }
+    
     try {
       // Connect to the socket server
-      const baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      const baseUrl = getApiBaseUrl();
       console.log('Connecting to socket server at:', baseUrl);
       
       socketRef.current = io(baseUrl, {
@@ -576,13 +787,16 @@ const MultiUserDashboardWithErrorHandling = () => {
     } catch (error) {
       console.error('Error setting up socket connection:', error);
     }
-  }, []);
+  }, [isOnline]);
   
   // Fetch all data
   const fetchData = () => {
-    routinesApi.retry();
-    updatesApi.retry();
-    logsApi.retry();
+    if (isOnline) {
+      routinesApi.retry();
+      updatesApi.retry();
+      logsApi.retry();
+      usersApi.retry();
+    }
   };
   
   // Navigate to previous day
@@ -952,6 +1166,14 @@ const MultiUserDashboardWithErrorHandling = () => {
     usersApi.status === API_STATES.ERROR || 
     currentUserApi.status === API_STATES.ERROR;
   
+  // Check if any API calls have timed out
+  const hasTimeout = 
+    routinesApi.status === API_STATES.TIMEOUT || 
+    updatesApi.status === API_STATES.TIMEOUT || 
+    logsApi.status === API_STATES.TIMEOUT || 
+    usersApi.status === API_STATES.TIMEOUT || 
+    currentUserApi.status === API_STATES.TIMEOUT;
+  
   // Get the first error to display
   const firstError = 
     routinesApi.error || 
@@ -959,6 +1181,11 @@ const MultiUserDashboardWithErrorHandling = () => {
     logsApi.error || 
     usersApi.error || 
     currentUserApi.error;
+  
+  // If offline, show offline fallback
+  if (!isOnline) {
+    return <OfflineFallback message={`You're currently offline. Here's a preview of ${babyName}'s dashboard with sample data.`} />;
+  }
   
   // If loading, show loading fallback
   if (isLoading) {
@@ -971,7 +1198,7 @@ const MultiUserDashboardWithErrorHandling = () => {
       <ApiErrorFallback 
         error={firstError} 
         retry={fetchData} 
-        message="We couldn't load the dashboard data. Please check your connection and try again."
+        message="We couldn't connect to the server. Please check your internet connection and try again."
       />
     );
   }
@@ -988,14 +1215,23 @@ const MultiUserDashboardWithErrorHandling = () => {
           </Typography>
         </div>
         
-        {connected && (
-          <div className={classes.realTimeIndicator}>
-            <div className={classes.realTimeIcon}>●</div>
-            <Typography variant="body2">
-              Real-time updates active
-            </Typography>
-          </div>
-        )}
+        <div className={`${classes.connectionStatus} ${isOnline ? classes.online : classes.offline}`}>
+          {isOnline ? (
+            <>
+              <WifiIcon style={{ marginRight: 8, color: '#4caf50' }} />
+              <Typography variant="body2">
+                {connected ? 'Connected with real-time updates' : 'Connected'}
+              </Typography>
+            </>
+          ) : (
+            <>
+              <WifiOffIcon style={{ marginRight: 8, color: '#f44336' }} />
+              <Typography variant="body2">
+                Offline Mode - Limited Functionality
+              </Typography>
+            </>
+          )}
+        </div>
         
         <div className={classes.dateNavigation}>
           <IconButton onClick={goToPreviousDay}>
