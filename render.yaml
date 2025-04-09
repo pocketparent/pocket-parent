@@ -10,6 +10,8 @@ services:
         value: https://hatchling-backend.onrender.com
       - key: REACT_APP_POLLING_INTERVAL
         value: 5000
+      - key: NODE_VERSION
+        value: 18.18.0
 
   # Backend service configuration
   - type: web

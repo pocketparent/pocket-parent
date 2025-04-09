@@ -4,6 +4,10 @@
 # Print commands for debugging
 set -x
 
+# Display Node.js version for debugging
+node --version
+npm --version
+
 # Clean up
 rm -rf node_modules
 
