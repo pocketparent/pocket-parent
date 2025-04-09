@@ -29,7 +29,8 @@ USERS_FILE = os.path.join(os.path.dirname(__file__), DATA_DIR,
 # Initialize services
 data_manager = DataManager(ROUTINES_FILE, CAREGIVER_UPDATES_FILE, USERS_FILE)
 parser_service = ParserService()
-sms_service = SMSService(data_manager, parser_service)
+# Fix: SMSService only takes one argument (data_manager)
+sms_service = SMSService(data_manager)
 openai_service = OpenAIService()
 
 # Root route handler
@@ -60,19 +61,20 @@ def sms_webhook():
             # This is a Twilio webhook request
             from_number = request.form.get('From', '')
             body = request.form.get('Body', '')
+            user_id = request.form.get('user_id', 'default')  # Add default user_id
             
             # Process the SMS message
-            response = sms_service.process_sms(body, from_number)
-            return response
+            response = sms_service.process_sms(body, from_number, user_id)
+            return jsonify(response)
         
         # Handle direct API call
         data = request.get_json()
         message = data.get('message', '')
         from_number = data.get('from_number', '')
-        user_id = data.get('user_id', '')
+        user_id = data.get('user_id', 'default')  # Add default if not provided
         
         # Process the message
-        result = sms_service.process_message(message, from_number, user_id)
+        result = sms_service.process_sms(message, from_number, user_id)
         return jsonify(result)
     
     except Exception as e:
@@ -132,7 +134,7 @@ def get_suggestions():
 
 if __name__ == '__main__':
     # Create data directory if it doesn't exist
-    os.makedirs(DATA_DIR, exist_ok=True)
+    os.makedirs(os.path.join(os.path.dirname(__file__), DATA_DIR), exist_ok=True)
     
     # Initialize data files if they don't exist
     data_manager.initialize_data_files()
