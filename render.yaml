@@ -3,10 +3,10 @@ services:
   - type: web
     name: hatchling-frontend
     env: static
-    buildCommand: |
-      rm -rf node_modules
-      npm cache clean --force
-      npm install --no-audit --no-fund
+    buildCommand: >
+      rm -rf node_modules &&
+      npm cache clean --force &&
+      npm install &&
       npm run build
     staticPublishPath: ./build
     envVars:
