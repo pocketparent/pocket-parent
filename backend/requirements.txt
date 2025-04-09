@@ -8,3 +8,4 @@ twilio==7.8.0
 flask-socketio==5.1.1
 eventlet==0.33.0
 bcrypt==4.0.1
+python-dateutil==2.8.2
