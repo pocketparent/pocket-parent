@@ -7,9 +7,13 @@ from parser_service import ParserService
 from sms_service import SMSService
 from services.openai_service import OpenAIService
 from socket_service import SocketService
+from init_db import init_database
 
 # Load environment variables
 load_dotenv()
+
+# Initialize database
+init_database()
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -146,11 +150,57 @@ def get_user():
 def create_or_update_user():
     try:
         data = request.get_json()
+        
+        # Check if this is a sign-up request
+        if 'email' in data and 'password' in data and 'name' in data:
+            # This is a sign-up request
+            email = data.get('email')
+            password = data.get('password')
+            name = data.get('name')
+            
+            # Create the user
+            result = data_manager.create_user(email, password, name)
+            
+            # Check for errors
+            if 'error' in result:
+                return jsonify({"error": result['error']}), 400
+                
+            # Return success
+            return jsonify({"success": True, "user": result})
+        
+        # Otherwise, treat as a regular user update
         user_id = data.get('id', 'default')
         user_data = data
         result = data_manager.update_user(user_id, user_data)
         return jsonify(result)
     except Exception as e:
+        logger.error(f"Error creating/updating user: {str(e)}")
+        return jsonify({"error": str(e)}), 400
+
+# User login endpoint
+@app.route('/login', methods=['POST'])
+def login():
+    try:
+        data = request.get_json()
+        email = data.get('email')
+        password = data.get('password')
+        
+        if not email or not password:
+            return jsonify({"error": "Email and password are required"}), 400
+        
+        # Authenticate user
+        user = data_manager.authenticate_user(email, password)
+        
+        if not user:
+            return jsonify({"error": "Invalid email or password"}), 401
+        
+        # Don't return the password in the response
+        if 'password' in user:
+            user = {k: v for k, v in user.items() if k != 'password'}
+        
+        return jsonify({"success": True, "user": user})
+    except Exception as e:
+        logger.error(f"Error during login: {str(e)}")
         return jsonify({"error": str(e)}), 400
 
 # Parse routine endpoint
