@@ -43,7 +43,10 @@ def index():
             "sms": "/sms",
             "routines": "/api/routines",
             "updates": "/api/updates",
-            "health": "/health"
+            "health": "/health",
+            "assistant": "/assistant",
+            "users": "/users",
+            "parse-routine": "/parse-routine"
         }
     })
 
@@ -80,7 +83,117 @@ def sms_webhook():
     except Exception as e:
         return jsonify({"error": str(e)}), 400
 
-# Get all routines
+# Get SMS messages (GET method for frontend)
+@app.route('/sms', methods=['GET'])
+def get_sms():
+    try:
+        user_id = request.args.get('user_id', 'default')
+        updates = data_manager.get_caregiver_updates(user_id)
+        return jsonify(updates)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+# Assistant endpoint for Parent Assistant feature
+@app.route('/assistant', methods=['POST'])
+def assistant():
+    try:
+        print("Assistant endpoint called")
+        data = request.get_json()
+        message = data.get('message', '')
+        user_id = data.get('user_id', 'default')
+        
+        print(f"Request data: user_id={user_id}, message={message}")
+        
+        # Get user data for context
+        user_data = data_manager.get_user(user_id)
+        
+        # Get routine data for context
+        routines = data_manager.get_routines(user_id)
+        
+        # Get response from OpenAI
+        response = openai_service.get_response(message, user_data, routines)
+        
+        print(f"Generated response: {response[:100]}...")  # Log first 100 chars of response
+        
+        return jsonify({"message": response})
+    except Exception as e:
+        print(f"Error in assistant endpoint: {str(e)}")
+        return jsonify({"error": str(e)}), 400
+
+# Users endpoint - GET
+@app.route('/users', methods=['GET'])
+def get_user():
+    try:
+        user_id = request.args.get('user_id', 'default')
+        user = data_manager.get_user(user_id)
+        return jsonify(user)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+# Users endpoint - POST
+@app.route('/users', methods=['POST'])
+def create_or_update_user():
+    try:
+        data = request.get_json()
+        user_id = data.get('id', 'default')
+        user_data = data
+        result = data_manager.update_user(user_id, user_data)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+# Parse routine endpoint
+@app.route('/parse-routine', methods=['POST'])
+def parse_routine():
+    try:
+        data = request.get_json()
+        text = data.get('text', '')
+        user_id = data.get('user_id', 'default')
+        baby_id = data.get('baby_id', 'default')
+        
+        # Parse the routine text
+        parsed_routine = parser_service.parse_routine(text)
+        
+        # Add the routine to the database
+        result = data_manager.add_routine(parsed_routine, user_id)
+        
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+# Subscription endpoint
+@app.route('/subscription', methods=['POST'])
+def update_subscription():
+    try:
+        data = request.get_json()
+        user_id = data.get('user_id', 'default')
+        subscription_status = data.get('subscription_status', 'trial')
+        
+        # Get the user
+        user = data_manager.get_user(user_id)
+        
+        # Update subscription status
+        if user:
+            user['subscription_status'] = subscription_status
+            result = data_manager.update_user(user_id, user)
+        else:
+            # Create new user with subscription status
+            user = {
+                'id': user_id,
+                'subscription_status': subscription_status
+            }
+            result = data_manager.update_user(user_id, user)
+        
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+# Get all routines - alternate endpoint to match frontend expectations
+@app.route('/routines', methods=['GET'])
+def get_routines_alt():
+    return get_routines()
+
+# Get all caregiver updates
 @app.route('/api/routines', methods=['GET'])
 def get_routines():
     user_id = request.args.get('user_id', 'default')
