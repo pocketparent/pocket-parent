@@ -1,11 +1,5 @@
 import React from 'react';
-import { 
-  BrowserRouter as Router,
-  Routes,
-  Route,
-  Link,
-  Navigate
-} from 'react-router-dom';
+import { BrowserRouter as Router, Route, Link, Redirect, Switch } from 'react-router-dom';
 import { 
   AppBar, 
   Toolbar, 
@@ -18,12 +12,12 @@ import {
   ListItemIcon, 
   ListItemText, 
   Box, 
-  Container,
-  useMediaQuery,
-  ThemeProvider,
-  createTheme,
-  CssBaseline,
-  Divider
+  Container, 
+  useMediaQuery, 
+  ThemeProvider, 
+  createTheme, 
+  CssBaseline, 
+  Divider 
 } from '@material-ui/core';
 import { styled } from '@material-ui/core/styles';
 import MenuIcon from '@material-ui/icons/Menu';
@@ -33,6 +27,7 @@ import PeopleIcon from '@material-ui/icons/People';
 import PaymentIcon from '@material-ui/icons/Payment';
 import ChatIcon from '@material-ui/icons/Chat';
 import CloseIcon from '@material-ui/icons/Close';
+
 import Dashboard from './components/Dashboard';
 import BillingPage from './components/BillingPage';
 import ParentAssistantChat from './components/ParentAssistantChat';
@@ -136,11 +131,27 @@ const AppWrapper = props => (
 );
 
 const MainContent = props => (
-  <Box flexGrow={1} padding={3} marginTop={8} bgcolor={theme.palette.background.default} {...props} />
+  <Box
+    flexGrow={1}
+    padding={3}
+    marginTop={8}
+    bgcolor={theme.palette.background.default}
+    {...props}
+  />
 );
 
 const Logo = props => (
-  <Typography variant="h6" component="div" style={{ fontWeight: 700, color: theme.palette.primary.contrastText, display: 'flex', alignItems: 'center' }} {...props}>
+  <Typography
+    variant="h6"
+    component="div"
+    style={{
+      fontWeight: 700,
+      color: theme.palette.primary.contrastText,
+      display: 'flex',
+      alignItems: 'center'
+    }}
+    {...props}
+  >
     Hatchling<span style={{ color: theme.palette.secondary.light }}>.</span>
   </Typography>
 );
@@ -163,21 +174,24 @@ const NavDrawer = props => (
 );
 
 const NavLink = props => (
-  <Link style={{ textDecoration: 'none', color: 'inherit' }} {...props} />
+  <Link
+    style={{ textDecoration: 'none', color: 'inherit' }}
+    {...props}
+  />
 );
 
 const App = () => {
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  
+
   const toggleDrawer = () => {
     setDrawerOpen(!drawerOpen);
   };
-  
+
   const closeDrawer = () => {
     setDrawerOpen(false);
   };
-  
+
   const navItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
     { text: 'Caregivers', icon: <PeopleIcon />, path: '/caregivers' },
@@ -185,7 +199,7 @@ const App = () => {
     { text: 'Assistant', icon: <ChatIcon />, path: '/assistant' },
     { text: 'Billing', icon: <PaymentIcon />, path: '/billing' },
   ];
-  
+
   const drawer = (
     <Box width={240}>
       <Box display="flex" justifyContent="space-between" alignItems="center" p={2}>
@@ -211,7 +225,7 @@ const App = () => {
       </List>
     </Box>
   );
-  
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
@@ -236,7 +250,6 @@ const App = () => {
               </Button>
             </Toolbar>
           </AppBar>
-          
           <NavDrawer
             variant={isMobile ? "temporary" : "permanent"}
             open={isMobile ? drawerOpen : true}
@@ -244,17 +257,16 @@ const App = () => {
           >
             {drawer}
           </NavDrawer>
-          
           <MainContent style={{ marginLeft: isMobile ? 0 : '240px' }}>
             <Container maxWidth="lg">
-              <Routes>
-                <Route path="/" element={<Dashboard />} />
-                <Route path="/caregivers" element={<CaregiverUpdates />} />
-                <Route path="/history" element={<CaregiverUpdates />} />
-                <Route path="/assistant" element={<ParentAssistantChat />} />
-                <Route path="/billing" element={<BillingPage />} />
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
+              <Switch>
+                <Route exact path="/" component={Dashboard} />
+                <Route path="/caregivers" component={CaregiverUpdates} />
+                <Route path="/history" component={CaregiverUpdates} />
+                <Route path="/assistant" component={ParentAssistantChat} />
+                <Route path="/billing" component={BillingPage} />
+                <Redirect from="*" to="/" />
+              </Switch>
             </Container>
           </MainContent>
         </AppWrapper>
