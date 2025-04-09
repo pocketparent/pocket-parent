@@ -8,6 +8,8 @@ services:
     envVars:
       - key: NODE_VERSION
         value: 18.18.0
+      - key: NODE_OPTIONS
+        value: --openssl-legacy-provider
       - key: REACT_APP_API_BASE_URL
         value: https://hatchling-backend.onrender.com
       - key: REACT_APP_POLLING_INTERVAL
