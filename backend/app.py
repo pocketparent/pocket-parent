@@ -150,31 +150,11 @@ def get_user():
 def create_or_update_user():
     try:
         data = request.get_json()
-        
-        # Check if this is a sign-up request
-        if 'email' in data and 'password' in data and 'name' in data:
-            # This is a sign-up request
-            email = data.get('email')
-            password = data.get('password')
-            name = data.get('name')
-            
-            # Create the user
-            result = data_manager.create_user(email, password, name)
-            
-            # Check for errors
-            if 'error' in result:
-                return jsonify({"error": result['error']}), 400
-                
-            # Return success
-            return jsonify({"success": True, "user": result})
-        
-        # Otherwise, treat as a regular user update
         user_id = data.get('id', 'default')
         user_data = data
         result = data_manager.update_user(user_id, user_data)
         return jsonify(result)
     except Exception as e:
-        logger.error(f"Error creating/updating user: {str(e)}")
         return jsonify({"error": str(e)}), 400
 
 # User login endpoint
@@ -199,26 +179,6 @@ def login():
             user = {k: v for k, v in user.items() if k != 'password'}
         
         return jsonify({"success": True, "user": user})
-    except Exception as e:
-        logger.error(f"Error during login: {str(e)}")
-        return jsonify({"error": str(e)}), 400
-
-# Parse routine endpoint
-@app.route('/parse-routine', methods=['POST'])
-def parse_routine():
-    try:
-        data = request.get_json()
-        text = data.get('text', '')
-        user_id = data.get('user_id', 'default')
-        baby_id = data.get('baby_id', 'default')
-        
-        # Parse the routine text
-        parsed_routine = parser_service.parse_routine(text)
-        
-        # Add the routine to the database
-        result = data_manager.add_routine(parsed_routine, user_id)
-        
-        return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 400
 

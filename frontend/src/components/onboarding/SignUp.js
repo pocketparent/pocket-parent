@@ -9,7 +9,7 @@ import {
   CircularProgress
 } from '@material-ui/core';
 import { makeStyles } from '@material-ui/core/styles';
-import axios from 'axios';
+import ApiService from '../../services/ApiService';
 
 const useStyles = makeStyles((theme) => ({
   container: {
@@ -91,9 +91,6 @@ const SignUp = ({ onSignUpComplete }) => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  // Get API base URL from environment
-  const baseUrl = process.env.REACT_APP_API_URL || process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
-
   const validateForm = () => {
     if (!name || !email || !password || !confirmPassword) {
       setError('All fields are required');
@@ -124,84 +121,32 @@ const SignUp = ({ onSignUpComplete }) => {
     if (!validateForm()) return;
     
     setLoading(true);
-    setError('');
-    
     try {
-      // Call the backend API directly to create user
-      const response = await axios.post(`${baseUrl}/users`, {
+      // Create user data object
+      const userData = {
         name,
         email,
-        password
-      });
+        password, // Note: In a real app, password should be handled securely
+        subscription_status: 'trial',
+        trial_start_date: new Date().toISOString(),
+        children: []
+      };
       
-      // Check if the response contains an error
-      if (response.data && response.data.error) {
-        setError(response.data.error);
-        setLoading(false);
-        return;
-      }
+      // Call API to create user
+      const response = await ApiService.createOrUpdateUser(userData);
       
-      // Set success message
       setSuccess('Account created successfully!');
+      setLoading(false);
       
       // Wait a moment before proceeding to next step
       setTimeout(() => {
-        // Try to log in the user automatically
-        handleAutoLogin();
+        onSignUpComplete(response);
       }, 1500);
       
     } catch (error) {
+      setError('Error creating account. Please try again.');
+      setLoading(false);
       console.error('Sign up error:', error);
-      
-      if (error.response) {
-        // The request was made and the server responded with a status code
-        // that falls out of the range of 2xx
-        setError(error.response.data.error || 'Error creating account. Please try again.');
-      } else if (error.request) {
-        // The request was made but no response was received
-        setError('Cannot connect to server. Please check your internet connection.');
-      } else {
-        // Something happened in setting up the request that triggered an Error
-        setError('Error creating account. Please try again.');
-      }
-      
-      setLoading(false);
-    }
-  };
-
-  const handleAutoLogin = async () => {
-    try {
-      // Call the login API
-      const response = await axios.post(`${baseUrl}/login`, {
-        email,
-        password
-      });
-      
-      // Check if login was successful
-      if (response.data.success) {
-        const userData = response.data.user;
-        
-        // Complete the sign-up process with the user data
-        onSignUpComplete(userData);
-      } else {
-        // If auto-login fails, still complete the sign-up process
-        // but without user data (will require manual login)
-        onSignUpComplete({
-          email,
-          name,
-          subscription_status: 'trial'
-        });
-      }
-    } catch (error) {
-      console.error('Auto-login error:', error);
-      // If auto-login fails, still complete the sign-up process
-      onSignUpComplete({
-        email,
-        name,
-        subscription_status: 'trial'
-      });
-    } finally {
-      setLoading(false);
     }
   };
 
