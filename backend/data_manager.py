@@ -25,10 +25,23 @@ class DataManager:
         self.caregiver_updates_file = caregiver_updates_file
         self.users_file = users_file or os.path.join(os.path.dirname(routines_file), 'users.json')
         
+        # Ensure data directory exists
+        self._ensure_data_directory()
+        
         # Ensure all data files exist
         self._ensure_file_exists(self.routines_file, [])
         self._ensure_file_exists(self.caregiver_updates_file, [])
         self._ensure_file_exists(self.users_file, [])
+    
+    def _ensure_data_directory(self):
+        """
+        Ensure that the data directory exists, creating it if it doesn't.
+        """
+        for file_path in [self.routines_file, self.caregiver_updates_file, self.users_file]:
+            directory = os.path.dirname(file_path)
+            if directory and not os.path.exists(directory):
+                os.makedirs(directory, exist_ok=True)
+                print(f"Created directory: {directory}")
     
     def _ensure_file_exists(self, file_path, default_content=None):
         """
@@ -39,8 +52,16 @@ class DataManager:
             default_content (any, optional): Default content to write if file doesn't exist
         """
         if not os.path.exists(file_path):
+            # Ensure directory exists
+            directory = os.path.dirname(file_path)
+            if directory and not os.path.exists(directory):
+                os.makedirs(directory, exist_ok=True)
+                print(f"Created directory: {directory}")
+            
+            # Create file with default content
             with open(file_path, 'w') as f:
                 json.dump(default_content or [], f)
+            print(f"Created file: {file_path}")
     
     def _read_json_file(self, file_path):
         """
@@ -71,12 +92,33 @@ class DataManager:
             bool: True if successful, False otherwise
         """
         try:
+            # Ensure directory exists
+            directory = os.path.dirname(file_path)
+            if directory and not os.path.exists(directory):
+                os.makedirs(directory, exist_ok=True)
+                print(f"Created directory: {directory}")
+            
             with open(file_path, 'w') as f:
                 json.dump(data, f, indent=2)
             return True
         except Exception as e:
             print(f"Error writing to {file_path}: {str(e)}")
             return False
+    
+    def initialize_data_files(self):
+        """
+        Initialize all data files if they don't exist.
+        This method can be called explicitly during app startup.
+        """
+        # Ensure data directory exists
+        self._ensure_data_directory()
+        
+        # Ensure all data files exist
+        self._ensure_file_exists(self.routines_file, [])
+        self._ensure_file_exists(self.caregiver_updates_file, [])
+        self._ensure_file_exists(self.users_file, [])
+        
+        print(f"Data files initialized: {self.routines_file}, {self.caregiver_updates_file}, {self.users_file}")
     
     # Routine methods
     def save_routine(self, routine_data):
@@ -116,6 +158,21 @@ class DataManager:
         """
         return self._read_json_file(self.routines_file)
     
+    def get_routines(self, user_id=None):
+        """
+        Get routines, optionally filtered by user ID.
+        
+        Args:
+            user_id (str, optional): User ID to filter by
+            
+        Returns:
+            list: Filtered routines or all routines if no user_id provided
+        """
+        routines = self._read_json_file(self.routines_file)
+        if user_id:
+            return [r for r in routines if r.get('user_id') == user_id]
+        return routines
+    
     def get_user_routines(self, user_id):
         """
         Get routines for a specific user.
@@ -141,6 +198,22 @@ class DataManager:
         """
         routines = self._read_json_file(self.routines_file)
         return [r for r in routines if r.get('baby_id') == baby_id]
+    
+    def add_routine(self, routine, user_id=None):
+        """
+        Add a new routine.
+        
+        Args:
+            routine (dict): Routine data
+            user_id (str, optional): User ID to associate with the routine
+            
+        Returns:
+            dict: The saved routine
+        """
+        if user_id:
+            routine['user_id'] = user_id
+        
+        return self.save_routine(routine)
     
     # Caregiver update methods
     def save_caregiver_update(self, update_data):
@@ -171,6 +244,21 @@ class DataManager:
         
         return update_data
     
+    def get_caregiver_updates(self, user_id=None):
+        """
+        Get caregiver updates, optionally filtered by user ID.
+        
+        Args:
+            user_id (str, optional): User ID to filter by
+            
+        Returns:
+            list: Filtered updates or all updates if no user_id provided
+        """
+        updates = self._read_json_file(self.caregiver_updates_file)
+        if user_id:
+            return [u for u in updates if u.get('user_id') == user_id]
+        return updates
+    
     def get_user_updates(self, user_id):
         """
         Get updates for a specific user.
@@ -196,6 +284,22 @@ class DataManager:
         """
         updates = self._read_json_file(self.caregiver_updates_file)
         return [u for u in updates if u.get('baby_id') == baby_id]
+    
+    def add_caregiver_update(self, update, user_id=None):
+        """
+        Add a new caregiver update.
+        
+        Args:
+            update (dict): Update data
+            user_id (str, optional): User ID to associate with the update
+            
+        Returns:
+            dict: The saved update
+        """
+        if user_id:
+            update['user_id'] = user_id
+        
+        return self.save_caregiver_update(update)
     
     # User methods
     def save_user(self, user_data):
