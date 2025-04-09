@@ -1,40 +1,36 @@
+version: '2'
 services:
-  # Frontend service configuration
-  - type: web
+  # Backend service
+  backend:
+    name: hatchling-backend
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.12
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: CORS_ALLOWED_ORIGINS
+        value: https://hatchling-frontend.onrender.com
+      - key: DATA_DIR
+        value: /data
+    disk:
+      name: data
+      mountPath: /data
+      sizeGB: 1
+
+  # Frontend service
+  frontend:
     name: hatchling-frontend
     env: node
-    buildCommand: ./build.sh
+    buildCommand: |
+      export NODE_OPTIONS=--openssl-legacy-provider
+      npm ci
+      npm run build
     startCommand: npx serve -s build -l $PORT
     envVars:
       - key: NODE_VERSION
         value: 18.18.0
-      - key: NODE_OPTIONS
-        value: --openssl-legacy-provider
-      - key: REACT_APP_API_BASE_URL
+      - key: REACT_APP_API_URL
         value: https://hatchling-backend.onrender.com
-      - key: REACT_APP_POLLING_INTERVAL
-        value: 5000
-
-  # Backend service configuration
-  - type: web
-    name: hatchling-backend
-    env: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn -b 0.0.0.0:$PORT app:app
-    envVars:
-      - key: FLASK_ENV
-        value: production
-      - key: DEBUG
-        value: false
-      - key: CORS_ALLOWED_ORIGINS
-        value: https://myhatchling.ai,https://hatchling-frontend.onrender.com
-      - key: PORT
-        value: 8000
-      - key: TWILIO_ACCOUNT_SID
-        sync: false
-      - key: TWILIO_AUTH_TOKEN
-        sync: false
-      - key: TWILIO_PHONE_NUMBER
-        sync: false
-      - key: OPENAI_API_KEY
-        sync: false
