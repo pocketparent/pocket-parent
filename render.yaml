@@ -3,11 +3,7 @@ services:
   - type: web
     name: hatchling-frontend
     env: static
-    buildCommand: >
-      rm -rf node_modules &&
-      npm cache clean --force &&
-      npm install &&
-      npm run build
+    buildCommand: ./build.sh
     staticPublishPath: ./build
     envVars:
       - key: REACT_APP_API_BASE_URL
