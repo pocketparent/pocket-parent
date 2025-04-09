@@ -1,23 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Switch, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Switch, Route, Redirect } from 'react-router-dom';
 import { ThemeProvider, createMuiTheme } from '@material-ui/core/styles';
 import CssBaseline from '@material-ui/core/CssBaseline';
 import Dashboard from './components/Dashboard';
 import MultiUserDashboardWithErrorHandling from './components/MultiUserDashboardWithErrorHandling';
 import ErrorBoundary from './components/ErrorBoundary';
 import { LoadingFallback } from './utils/fallbackComponents';
+import { OnboardingFlow } from './components/onboarding';
+import { AdminRoutes } from './components/admin';
 
 // Create a theme instance
 const theme = createMuiTheme({
   palette: {
     primary: {
-      main: '#4caf50',
+      main: '#e6d7c3',
     },
     secondary: {
-      main: '#2196f3',
+      main: '#6b9080',
     },
     background: {
-      default: '#fafafa',
+      default: '#FAF9F6',
     },
   },
   typography: {
@@ -35,7 +37,7 @@ const theme = createMuiTheme({
     },
     MuiPaper: {
       rounded: {
-        borderRadius: 8,
+        borderRadius: 16,
       },
     },
   },
@@ -54,16 +56,38 @@ const MOCK_DATA = {
 };
 
 function App() {
-  const [loading, setLoading] = useState(false); // Changed to false to skip initial loading
-  const [mockMode, setMockMode] = useState(true); // Start with mock mode enabled
+  const [loading, setLoading] = useState(false);
+  const [mockMode, setMockMode] = useState(true);
+  const [user, setUser] = useState(null);
+  const [isOnboarded, setIsOnboarded] = useState(false);
   
-  // Skip initialization delay and loading screen
+  // Check if user is already logged in and onboarded
   useEffect(() => {
-    console.log('App initialized with mock data');
-    // We're not setting loading to false here anymore since we start with loading=false
+    const checkUserStatus = async () => {
+      try {
+        // In a real app, we would check localStorage or cookies for user session
+        const storedUser = localStorage.getItem('hatchling_user');
+        if (storedUser) {
+          const userData = JSON.parse(storedUser);
+          setUser(userData);
+          setIsOnboarded(true);
+        }
+      } catch (error) {
+        console.error('Error checking user status:', error);
+      }
+    };
+    
+    checkUserStatus();
   }, []);
   
-  // If loading, show loading fallback - but we start with loading=false now
+  const handleOnboardingComplete = (userData) => {
+    setUser(userData);
+    setIsOnboarded(true);
+    // In a real app, we would store user data in localStorage or cookies
+    localStorage.setItem('hatchling_user', JSON.stringify(userData));
+  };
+  
+  // If loading, show loading fallback
   if (loading) {
     return <LoadingFallback message="Initializing Hatchling..." />;
   }
@@ -74,19 +98,37 @@ function App() {
       <Router>
         <Switch>
           <Route exact path="/">
-            <ErrorBoundary>
-              <MultiUserDashboardWithErrorHandling initialData={MOCK_DATA} useMockData={mockMode} />
-            </ErrorBoundary>
+            {isOnboarded ? (
+              <Redirect to="/dashboard" />
+            ) : (
+              <ErrorBoundary>
+                <OnboardingFlow onComplete={handleOnboardingComplete} />
+              </ErrorBoundary>
+            )}
           </Route>
           <Route path="/dashboard">
             <ErrorBoundary>
-              <Dashboard />
+              {isOnboarded ? (
+                <MultiUserDashboardWithErrorHandling 
+                  initialData={MOCK_DATA} 
+                  useMockData={mockMode}
+                  userData={user}
+                />
+              ) : (
+                <Redirect to="/" />
+              )}
             </ErrorBoundary>
           </Route>
-          <Route path="*">
+          <Route path="/onboarding">
             <ErrorBoundary>
-              <MultiUserDashboardWithErrorHandling initialData={MOCK_DATA} useMockData={mockMode} />
+              <OnboardingFlow onComplete={handleOnboardingComplete} />
             </ErrorBoundary>
+          </Route>
+          <Route path="/admin">
+            <AdminRoutes />
+          </Route>
+          <Route path="*">
+            <Redirect to="/" />
           </Route>
         </Switch>
       </Router>

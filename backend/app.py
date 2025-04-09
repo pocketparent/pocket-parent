@@ -6,6 +6,7 @@ from data_manager import DataManager
 from parser_service import ParserService
 from sms_service import SMSService
 from services.openai_service import OpenAIService
+from socket_service import SocketService
 
 # Load environment variables
 load_dotenv()
@@ -19,12 +20,21 @@ CORS(app, resources={r"/*": {"origins": CORS_ALLOWED_ORIGINS}})
 
 # Data storage paths
 DATA_DIR = os.getenv('DATA_DIR', 'data')
-ROUTINES_FILE = os.path.join(os.path.dirname(__file__), DATA_DIR, 
-                            os.getenv('ROUTINES_FILE', 'routines.json'))
-CAREGIVER_UPDATES_FILE = os.path.join(os.path.dirname(__file__), DATA_DIR, 
-                                    os.getenv('CAREGIVER_UPDATES_FILE', 'caregiver_updates.json'))
-USERS_FILE = os.path.join(os.path.dirname(__file__), DATA_DIR, 
-                        os.getenv('USERS_FILE', 'users.json'))
+
+# Handle absolute or relative paths for data directory
+if os.path.isabs(DATA_DIR):
+    # If DATA_DIR is an absolute path, use it directly
+    ROUTINES_FILE = os.path.join(DATA_DIR, os.getenv('ROUTINES_FILE', 'routines.json'))
+    CAREGIVER_UPDATES_FILE = os.path.join(DATA_DIR, os.getenv('CAREGIVER_UPDATES_FILE', 'caregiver_updates.json'))
+    USERS_FILE = os.path.join(DATA_DIR, os.getenv('USERS_FILE', 'users.json'))
+else:
+    # If DATA_DIR is a relative path, join with the current directory
+    ROUTINES_FILE = os.path.join(os.path.dirname(__file__), DATA_DIR, 
+                                os.getenv('ROUTINES_FILE', 'routines.json'))
+    CAREGIVER_UPDATES_FILE = os.path.join(os.path.dirname(__file__), DATA_DIR, 
+                                        os.getenv('CAREGIVER_UPDATES_FILE', 'caregiver_updates.json'))
+    USERS_FILE = os.path.join(os.path.dirname(__file__), DATA_DIR, 
+                            os.getenv('USERS_FILE', 'users.json'))
 
 # Initialize services
 data_manager = DataManager(ROUTINES_FILE, CAREGIVER_UPDATES_FILE, USERS_FILE)
@@ -32,6 +42,7 @@ parser_service = ParserService()
 # Fix: SMSService only takes one argument (data_manager)
 sms_service = SMSService(data_manager)
 openai_service = OpenAIService()
+socket_service = SocketService(app, data_manager)
 
 # Root route handler
 @app.route('/')
@@ -247,11 +258,14 @@ def get_suggestions():
 
 if __name__ == '__main__':
     # Create data directory if it doesn't exist
-    os.makedirs(os.path.join(os.path.dirname(__file__), DATA_DIR), exist_ok=True)
+    if os.path.isabs(DATA_DIR):
+        os.makedirs(DATA_DIR, exist_ok=True)
+    else:
+        os.makedirs(os.path.join(os.path.dirname(__file__), DATA_DIR), exist_ok=True)
     
     # Initialize data files if they don't exist
     data_manager.initialize_data_files()
     
-    # Run the Flask app
+    # Run the Flask app with Socket.IO
     port = int(os.getenv('PORT', 8000))
-    app.run(host='0.0.0.0', port=port, debug=(os.getenv('DEBUG', 'False').lower() == 'true'))
+    socket_service.run(host='0.0.0.0', port=port, debug=(os.getenv('DEBUG', 'False').lower() == 'true'))
