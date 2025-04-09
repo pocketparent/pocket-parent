@@ -6,11 +6,12 @@
     "@material-ui/core": "4.12.4",
     "@material-ui/icons": "4.11.3",
     "@material-ui/styles": "4.11.5",
+    "async": "^3.2.4",
     "axios": "0.27.2",
     "react": "17.0.2",
     "react-dom": "17.0.2",
     "react-router-dom": "6.4.2",
-    "react-scripts": "5.0.1",
+    "react-scripts": "4.0.3",
     "web-vitals": "2.1.4"
   },
   "scripts": {
@@ -39,6 +40,7 @@
   },
   "resolutions": {
     "react": "17.0.2",
-    "react-dom": "17.0.2"
+    "react-dom": "17.0.2",
+    "async": "^3.2.4"
   }
 }
