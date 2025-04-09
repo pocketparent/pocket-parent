@@ -10,19 +10,20 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  CircularProgress,
-  Alert
-} from '@mui/material';
-import { styled } from '@mui/material/styles';
+  CircularProgress
+} from '@material-ui/core';
+import Alert from '@material-ui/lab/Alert';
 import ApiService from '../services/ApiService';
 
-// Styled components
-const FormContainer = styled(Paper)(({ theme }) => ({
-  padding: theme.spacing(3),
-  borderRadius: theme.shape.borderRadius,
-  boxShadow: theme.shadows[2],
-  marginBottom: theme.spacing(3),
-}));
+// Styled components using makeStyles approach
+const FormContainer = props => (
+  <Paper style={{ 
+    padding: 24, 
+    borderRadius: 12, 
+    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)', 
+    marginBottom: 24 
+  }} {...props} />
+);
 
 const RoutineForm = ({ userId, onRoutineAdded }) => {
   const [routineText, setRoutineText] = useState('');
@@ -144,7 +145,7 @@ const RoutineForm = ({ userId, onRoutineAdded }) => {
               variant="contained"
               color="primary"
               disabled={loading || !routineText.trim()}
-              sx={{ mt: 1 }}
+              style={{ marginTop: 8 }}
             >
               {loading ? <CircularProgress size={24} /> : 'Add Update'}
             </Button>
@@ -153,13 +154,13 @@ const RoutineForm = ({ userId, onRoutineAdded }) => {
       </form>
       
       {error && (
-        <Alert severity="error" sx={{ mt: 2 }}>
+        <Alert severity="error" style={{ marginTop: 16 }}>
           {error}
         </Alert>
       )}
       
       {success && (
-        <Alert severity="success" sx={{ mt: 2 }}>
+        <Alert severity="success" style={{ marginTop: 16 }}>
           Routine update added successfully!
         </Alert>
       )}

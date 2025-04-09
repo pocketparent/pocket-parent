@@ -6,26 +6,23 @@ import {
   Grid, 
   Divider,
   CircularProgress,
-  Alert,
   Container
-} from '@mui/material';
-import { styled } from '@mui/material/styles';
+} from '@material-ui/core';
+import Alert from '@material-ui/lab/Alert';
 import ApiService from '../services/ApiService';
 import RoutineDisplay from '../components/RoutineDisplay';
 import CaregiverUpdates from '../components/CaregiverUpdates';
 import RoutineForm from '../components/RoutineForm';
 import ParentAssistantChat from '../components/ParentAssistantChat';
 
-// Styled components
-const PageContainer = styled(Container)(({ theme }) => ({
-  paddingTop: theme.spacing(4),
-  paddingBottom: theme.spacing(4),
-}));
+// Styled components using makeStyles approach
+const PageContainer = props => (
+  <Container maxWidth="lg" style={{ paddingTop: 32, paddingBottom: 32 }} {...props} />
+);
 
-const SectionTitle = styled(Typography)(({ theme }) => ({
-  marginBottom: theme.spacing(2),
-  fontWeight: 500,
-}));
+const SectionTitle = props => (
+  <Typography variant="h4" style={{ marginBottom: 16, fontWeight: 500 }} gutterBottom {...props} />
+);
 
 const Dashboard = ({ userId = null }) => {
   const [routines, setRoutines] = useState([]);
@@ -110,7 +107,7 @@ const Dashboard = ({ userId = null }) => {
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
+      <Box display="flex" justifyContent="center" alignItems="center" height="50vh">
         <CircularProgress />
       </Box>
     );
@@ -118,15 +115,15 @@ const Dashboard = ({ userId = null }) => {
 
   if (error) {
     return (
-      <Alert severity="error" sx={{ m: 2 }}>
+      <Alert severity="error" style={{ margin: 16 }}>
         {error}
       </Alert>
     );
   }
 
   return (
-    <PageContainer maxWidth="lg">
-      <SectionTitle variant="h4" gutterBottom>
+    <PageContainer>
+      <SectionTitle>
         Hatchling Dashboard
       </SectionTitle>
       
@@ -144,7 +141,7 @@ const Dashboard = ({ userId = null }) => {
           {latestRoutine ? (
             <RoutineDisplay userId={effectiveUserId} />
           ) : (
-            <Paper sx={{ p: 3, textAlign: 'center' }}>
+            <Paper style={{ padding: 24, textAlign: 'center' }}>
               <Typography variant="h6" gutterBottom>
                 No Routine Data Available
               </Typography>

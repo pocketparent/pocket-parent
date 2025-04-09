@@ -1,106 +1,93 @@
 import React from 'react';
-import { Box, Typography, Paper, Grid, Divider, Chip, Button, CircularProgress } from '@mui/material';
-import { styled } from '@mui/material/styles';
-import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import ErrorIcon from '@mui/icons-material/Error';
-import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
+import { Box, Typography, Paper, Grid, Divider, Chip, Button, CircularProgress } from '@material-ui/core';
+import AccessTimeIcon from '@material-ui/icons/AccessTime';
+import CheckCircleIcon from '@material-ui/icons/CheckCircle';
+import ErrorIcon from '@material-ui/icons/Error';
+import HourglassEmptyIcon from '@material-ui/icons/HourglassEmpty';
 import ApiService from '../services/ApiService';
 
-// Styled components for the timeline
-const TimelineContainer = styled(Box)(({ theme }) => ({
-  position: 'relative',
-  width: '100%',
-  height: 120,
-  marginTop: theme.spacing(2),
-  marginBottom: theme.spacing(2),
-  backgroundColor: theme.palette.background.paper,
-  borderRadius: theme.shape.borderRadius,
-  padding: theme.spacing(2),
-  overflow: 'hidden',
-}));
+// Styled components for the timeline using makeStyles approach
+const TimelineContainer = props => (
+  <Box position="relative" width="100%" height={120} mt={2} mb={2} bgcolor="background.paper" borderRadius={12} p={2} overflow="hidden" {...props} />
+);
 
-const TimeMarker = styled(Box)(({ theme }) => ({
-  position: 'absolute',
-  top: 0,
-  height: '100%',
-  width: 1,
-  backgroundColor: theme.palette.divider,
-  zIndex: 1,
-}));
+const TimeMarker = props => (
+  <Box position="absolute" top={0} height="100%" width={1} bgcolor="divider" zIndex={1} {...props} />
+);
 
-const TimeLabel = styled(Typography)(({ theme }) => ({
-  position: 'absolute',
-  top: 10,
-  transform: 'translateX(-50%)',
-  fontSize: '0.75rem',
-  color: theme.palette.text.secondary,
-}));
+const TimeLabel = props => (
+  <Typography position="absolute" top={10} style={{ transform: 'translateX(-50%)' }} fontSize="0.75rem" color="textSecondary" {...props} />
+);
 
-const CurrentTimeMarker = styled(Box)(({ theme }) => ({
-  position: 'absolute',
-  top: 0,
-  height: '100%',
-  width: 2,
-  backgroundColor: theme.palette.primary.main,
-  zIndex: 2,
-}));
+const CurrentTimeMarker = props => (
+  <Box position="absolute" top={0} height="100%" width={2} bgcolor="primary.main" zIndex={2} {...props} />
+);
 
-const ActivityMarker = styled(Box)(({ theme, status }) => ({
-  position: 'absolute',
-  top: 40,
-  height: 60,
-  borderRadius: theme.shape.borderRadius,
-  padding: theme.spacing(1),
-  zIndex: 3,
-  display: 'flex',
-  flexDirection: 'column',
-  justifyContent: 'center',
-  alignItems: 'center',
-  backgroundColor: 
-    status === 'completed' ? theme.palette.success.light :
-    status === 'missed' ? theme.palette.error.light :
-    status === 'off-track' ? theme.palette.warning.light :
-    theme.palette.info.light,
-  color: 
-    status === 'completed' ? theme.palette.success.contrastText :
-    status === 'missed' ? theme.palette.error.contrastText :
-    status === 'off-track' ? theme.palette.warning.contrastText :
-    theme.palette.info.contrastText,
-  border: `1px solid ${
-    status === 'completed' ? theme.palette.success.main :
-    status === 'missed' ? theme.palette.error.main :
-    status === 'off-track' ? theme.palette.warning.main :
-    theme.palette.info.main
-  }`,
-  cursor: 'pointer',
-  '&:hover': {
-    opacity: 0.9,
-    boxShadow: theme.shadows[2],
-  },
-}));
+const ActivityMarker = ({ status, ...props }) => (
+  <Box 
+    position="absolute" 
+    top={40} 
+    height={60} 
+    borderRadius={12} 
+    p={1} 
+    zIndex={3} 
+    display="flex" 
+    flexDirection="column" 
+    justifyContent="center" 
+    alignItems="center" 
+    bgcolor={
+      status === 'completed' ? '#a5d6a7' : 
+      status === 'missed' ? '#ffcdd2' : 
+      status === 'off-track' ? '#ffe0b2' : 
+      '#bbdefb'
+    }
+    color={
+      status === 'completed' ? '#1b5e20' : 
+      status === 'missed' ? '#b71c1c' : 
+      status === 'off-track' ? '#e65100' : 
+      '#0d47a1'
+    }
+    border={`1px solid ${
+      status === 'completed' ? '#4caf50' : 
+      status === 'missed' ? '#f44336' : 
+      status === 'off-track' ? '#ff9800' : 
+      '#2196f3'
+    }`}
+    style={{ 
+      cursor: 'pointer',
+      '&:hover': {
+        opacity: 0.9,
+        boxShadow: '0px 2px 4px -1px rgba(0,0,0,0.2)'
+      }
+    }}
+    {...props} 
+  />
+);
 
-const StatusCard = styled(Paper)(({ theme }) => ({
-  padding: theme.spacing(2),
-  height: '100%',
-}));
+const StatusCard = props => (
+  <Paper style={{ padding: 16, height: '100%' }} elevation={2} {...props} />
+);
 
-const UpdatesCard = styled(Paper)(({ theme }) => ({
-  padding: theme.spacing(2),
-  height: '100%',
-}));
+const UpdatesCard = props => (
+  <Paper style={{ padding: 16, height: '100%' }} elevation={2} {...props} />
+);
 
-const UpdateItem = styled(Box)(({ theme, status }) => ({
-  padding: theme.spacing(1),
-  marginBottom: theme.spacing(1),
-  borderLeft: `4px solid ${
-    status === 'on-track' ? theme.palette.success.main :
-    status === 'off-track' ? theme.palette.warning.main :
-    theme.palette.error.main
-  }`,
-  backgroundColor: theme.palette.background.default,
-  borderRadius: theme.shape.borderRadius,
-}));
+const UpdateItem = ({ status, ...props }) => (
+  <Box 
+    p={1} 
+    mb={1} 
+    style={{
+      borderLeft: `4px solid ${
+        status === 'on-track' ? '#4caf50' : 
+        status === 'off-track' ? '#ff9800' : 
+        '#f44336'
+      }`,
+      backgroundColor: '#f8f9fa',
+      borderRadius: 12
+    }}
+    {...props} 
+  />
+);
 
 // Helper function to convert time to position percentage
 const timeToPosition = (time) => {
@@ -320,7 +307,7 @@ const RoutineDisplay = ({ userId }) => {
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
+      <Box display="flex" justifyContent="center" alignItems="center" height="50vh">
         <CircularProgress />
       </Box>
     );
@@ -328,7 +315,7 @@ const RoutineDisplay = ({ userId }) => {
 
   if (error) {
     return (
-      <Box sx={{ p: 2 }}>
+      <Box p={2}>
         <Typography variant="h6" color="error" gutterBottom>
           {error}
         </Typography>
@@ -341,7 +328,7 @@ const RoutineDisplay = ({ userId }) => {
 
   if (!routineData) {
     return (
-      <Box sx={{ p: 2 }}>
+      <Box p={2}>
         <Typography variant="h6" gutterBottom>
           No routine data available
         </Typography>
@@ -353,7 +340,7 @@ const RoutineDisplay = ({ userId }) => {
   }
 
   return (
-    <Box sx={{ flexGrow: 1, p: 2 }} className="routine-display">
+    <Box flexGrow={1} p={2} className="routine-display">
       <Typography variant="h4" gutterBottom className="text-2xl md:text-4xl font-bold mb-4">
         {routineData.babyName}'s Hatchling Routine
       </Typography>
@@ -365,17 +352,17 @@ const RoutineDisplay = ({ userId }) => {
             <Typography variant="h6" gutterBottom className="text-lg font-semibold">
               Current Status
             </Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }} className="flex items-center mb-4">
-              <AccessTimeIcon color="primary" sx={{ mr: 1 }} className="mr-2 text-primary-main" />
+            <Box display="flex" alignItems="center" mb={2} className="flex items-center mb-4">
+              <AccessTimeIcon color="primary" style={{ marginRight: 8 }} className="mr-2 text-primary-main" />
               <Typography variant="h5" className="text-xl font-medium">{currentStatus.activity}</Typography>
             </Box>
-            <Typography variant="body2" color="text.secondary" gutterBottom className="text-sm text-gray-600 mb-2">
+            <Typography variant="body2" color="textSecondary" gutterBottom className="text-sm text-gray-600 mb-2">
               Last update: {currentStatus.lastUpdate}
             </Typography>
-            <Typography variant="body2" color="text.secondary" gutterBottom className="text-sm text-gray-600 mb-4">
+            <Typography variant="body2" color="textSecondary" gutterBottom className="text-sm text-gray-600 mb-4">
               Next: {currentStatus.nextActivity}
             </Typography>
-            <Box sx={{ mt: 2, display: 'flex', gap: 1 }} className="mt-4 flex flex-wrap gap-2">
+            <Box mt={2} display="flex" style={{ gap: 8 }} className="mt-4 flex flex-wrap gap-2">
               <Button variant="contained" size="small" className="bg-primary-main hover:bg-primary-dark text-white px-3 py-1 rounded">Log Nap</Button>
               <Button variant="outlined" size="small" className="border-primary-main text-primary-main hover:bg-primary-light/10 px-3 py-1 rounded">Log Feeding</Button>
             </Box>
@@ -384,27 +371,27 @@ const RoutineDisplay = ({ userId }) => {
         
         {/* Daily Summary */}
         <Grid item xs={12} md={8}>
-          <Paper elevation={2} sx={{ p: 2, height: '100%' }} className="bg-white rounded-lg shadow-md p-4 h-full">
+          <Paper elevation={2} style={{ padding: 16, height: '100%' }} className="bg-white rounded-lg shadow-md p-4 h-full">
             <Typography variant="h6" gutterBottom className="text-lg font-semibold">
               Daily Summary
             </Typography>
             <Grid container spacing={2}>
               <Grid item xs={4}>
-                <Box sx={{ textAlign: 'center' }} className="text-center">
+                <Box textAlign="center" className="text-center">
                   <Typography variant="h4" className="text-2xl font-bold">{dailySummary.naps}</Typography>
-                  <Typography variant="body2" color="text.secondary" className="text-sm text-gray-600">Naps Completed</Typography>
+                  <Typography variant="body2" color="textSecondary" className="text-sm text-gray-600">Naps Completed</Typography>
                 </Box>
               </Grid>
               <Grid item xs={4}>
-                <Box sx={{ textAlign: 'center' }} className="text-center">
+                <Box textAlign="center" className="text-center">
                   <Typography variant="h4" className="text-2xl font-bold">{dailySummary.feedings}</Typography>
-                  <Typography variant="body2" color="text.secondary" className="text-sm text-gray-600">Feedings</Typography>
+                  <Typography variant="body2" color="textSecondary" className="text-sm text-gray-600">Feedings</Typography>
                 </Box>
               </Grid>
               <Grid item xs={4}>
-                <Box sx={{ textAlign: 'center' }} className="text-center">
+                <Box textAlign="center" className="text-center">
                   <Typography variant="h4" className="text-2xl font-bold">{dailySummary.onSchedule}</Typography>
-                  <Typography variant="body2" color="text.secondary" className="text-sm text-gray-600">On Schedule</Typography>
+                  <Typography variant="body2" color="textSecondary" className="text-sm text-gray-600">On Schedule</Typography>
                 </Box>
               </Grid>
             </Grid>
@@ -413,7 +400,7 @@ const RoutineDisplay = ({ userId }) => {
         
         {/* Timeline */}
         <Grid item xs={12}>
-          <Paper elevation={2} sx={{ p: 2 }} className="bg-white rounded-lg shadow-md p-4">
+          <Paper elevation={2} style={{ padding: 16 }} className="bg-white rounded-lg shadow-md p-4">
             <Typography variant="h6" gutterBottom className="text-lg font-semibold">
               Today's Timeline
             </Typography>
@@ -441,78 +428,31 @@ const RoutineDisplay = ({ userId }) => {
                 const position = timeToPosition(activity.plannedTime);
                 if (position < 0 || position > 100) return null;
                 
-                const width = activity.type === 'nap' ? 10 : 6;
-                
                 return (
                   <ActivityMarker 
-                    key={index}
+                    key={activity.id} 
+                    status={activity.status}
                     style={{ 
                       left: `${position}%`, 
-                      width: `${width}%`,
-                      marginLeft: `-${width / 2}%`
+                      width: activity.type === 'nap' ? '80px' : '60px',
+                      transform: 'translateX(-50%)'
                     }}
-                    status={activity.status}
-                    className={`absolute top-10 h-16 rounded p-2 z-30 flex flex-col justify-center items-center ${
-                      activity.status === 'completed' ? 'bg-green-100 text-green-800 border border-green-500' :
-                      activity.status === 'missed' ? 'bg-red-100 text-red-800 border border-red-500' :
-                      'bg-blue-100 text-blue-800 border border-blue-500'
-                    } cursor-pointer hover:opacity-90 hover:shadow`}
+                    className="absolute top-10 h-16 rounded-lg p-2 z-30 flex flex-col justify-center items-center transform -translate-x-1/2"
                   >
-                    <Typography variant="caption" className="text-xs font-medium">
+                    <Typography variant="caption" style={{ fontWeight: 'bold', fontSize: '0.7rem' }} className="text-xs font-bold">
                       {activity.name}
                     </Typography>
-                    <Typography variant="caption" className="text-xs">
+                    <Typography variant="caption" style={{ fontSize: '0.65rem' }} className="text-xs">
                       {activity.plannedTime}
                     </Typography>
+                    {activity.status === 'completed' && <CheckCircleIcon style={{ fontSize: '0.8rem', marginTop: '2px' }} className="text-sm mt-0.5" />}
+                    {activity.status === 'missed' && <ErrorIcon style={{ fontSize: '0.8rem', marginTop: '2px' }} className="text-sm mt-0.5" />}
+                    {activity.status === 'upcoming' && <HourglassEmptyIcon style={{ fontSize: '0.8rem', marginTop: '2px' }} className="text-sm mt-0.5" />}
                   </ActivityMarker>
                 );
               })}
             </TimelineContainer>
           </Paper>
-        </Grid>
-        
-        {/* Recent Updates */}
-        <Grid item xs={12}>
-          <UpdatesCard elevation={2} className="bg-white rounded-lg shadow-md p-4">
-            <Typography variant="h6" gutterBottom className="text-lg font-semibold">
-              Recent Caregiver Updates
-            </Typography>
-            {caregiverUpdates.length > 0 ? (
-              <Box>
-                {caregiverUpdates.slice(0, 5).map((update, index) => (
-                  <UpdateItem 
-                    key={index} 
-                    status={update.status}
-                    className={`p-2 mb-2 ${
-                      update.status === 'on-track' ? 'border-l-4 border-green-500' :
-                      update.status === 'off-track' ? 'border-l-4 border-yellow-500' :
-                      'border-l-4 border-red-500'
-                    } bg-gray-50 rounded`}
-                  >
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }} className="flex justify-between items-center">
-                      <Typography variant="body2" className="text-sm font-medium">
-                        {update.time}
-                      </Typography>
-                      <Chip 
-                        size="small" 
-                        label={update.caregiver} 
-                        color="primary" 
-                        variant="outlined"
-                        className="text-xs bg-primary-50 text-primary-700 border border-primary-300 px-2 py-0.5 rounded-full"
-                      />
-                    </Box>
-                    <Typography variant="body1" className="text-base mt-1">
-                      {update.message}
-                    </Typography>
-                  </UpdateItem>
-                ))}
-              </Box>
-            ) : (
-              <Typography variant="body1" color="text.secondary" className="text-base text-gray-600">
-                No recent updates from caregivers.
-              </Typography>
-            )}
-          </UpdatesCard>
         </Grid>
       </Grid>
     </Box>

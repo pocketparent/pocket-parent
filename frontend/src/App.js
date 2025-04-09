@@ -22,16 +22,17 @@ import {
   useMediaQuery,
   ThemeProvider,
   createTheme,
-  CssBaseline
-} from '@mui/material';
-import { styled } from '@mui/material/styles';
-import MenuIcon from '@mui/icons-material/Menu';
-import DashboardIcon from '@mui/icons-material/Dashboard';
-import HistoryIcon from '@mui/icons-material/History';
-import PeopleIcon from '@mui/icons-material/People';
-import PaymentIcon from '@mui/icons-material/Payment';
-import ChatIcon from '@mui/icons-material/Chat';
-import CloseIcon from '@mui/icons-material/Close';
+  CssBaseline,
+  Divider
+} from '@material-ui/core';
+import { styled } from '@material-ui/core/styles';
+import MenuIcon from '@material-ui/icons/Menu';
+import DashboardIcon from '@material-ui/icons/Dashboard';
+import HistoryIcon from '@material-ui/icons/History';
+import PeopleIcon from '@material-ui/icons/People';
+import PaymentIcon from '@material-ui/icons/Payment';
+import ChatIcon from '@material-ui/icons/Chat';
+import CloseIcon from '@material-ui/icons/Close';
 import Dashboard from './components/Dashboard';
 import BillingPage from './components/BillingPage';
 import ParentAssistantChat from './components/ParentAssistantChat';
@@ -108,71 +109,62 @@ const theme = createTheme({
     '0px 4px 12px rgba(0, 0, 0, 0.12)',
     // ... rest of shadows
   ],
-  components: {
+  overrides: {
     MuiButton: {
-      styleOverrides: {
-        root: {
-          borderRadius: 8,
-          padding: '8px 16px',
-        },
+      root: {
+        borderRadius: 8,
+        padding: '8px 16px',
       },
     },
     MuiPaper: {
-      styleOverrides: {
-        rounded: {
-          borderRadius: 12,
-        },
+      rounded: {
+        borderRadius: 12,
       },
     },
     MuiCard: {
-      styleOverrides: {
-        root: {
-          borderRadius: 12,
-          boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
-        },
+      root: {
+        borderRadius: 12,
+        boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
       },
     },
   },
 });
 
-// Styled components
-const AppWrapper = styled(Box)(({ theme }) => ({
-  display: 'flex',
-  flexDirection: 'column',
-  minHeight: '100vh',
-}));
+// Styled components using withStyles or makeStyles instead of styled
+const AppWrapper = props => (
+  <Box display="flex" flexDirection="column" minHeight="100vh" {...props} />
+);
 
-const MainContent = styled(Box)(({ theme }) => ({
-  flexGrow: 1,
-  padding: theme.spacing(3),
-  marginTop: 64, // AppBar height
-  backgroundColor: theme.palette.background.default,
-}));
+const MainContent = props => (
+  <Box flexGrow={1} padding={3} marginTop={8} bgcolor={theme.palette.background.default} {...props} />
+);
 
-const Logo = styled(Typography)(({ theme }) => ({
-  fontWeight: 700,
-  color: theme.palette.primary.contrastText,
-  display: 'flex',
-  alignItems: 'center',
-  '& span': {
-    color: theme.palette.secondary.light,
-  },
-}));
+const Logo = props => (
+  <Typography variant="h6" component="div" style={{ fontWeight: 700, color: theme.palette.primary.contrastText, display: 'flex', alignItems: 'center' }} {...props}>
+    Hatchling<span style={{ color: theme.palette.secondary.light }}>.</span>
+  </Typography>
+);
 
-const NavDrawer = styled(Drawer)(({ theme }) => ({
-  width: 240,
-  flexShrink: 0,
-  '& .MuiDrawer-paper': {
-    width: 240,
-    boxSizing: 'border-box',
-    backgroundColor: theme.palette.background.paper,
-  },
-}));
+const NavDrawer = props => (
+  <Drawer
+    style={{
+      width: 240,
+      flexShrink: 0,
+    }}
+    PaperProps={{
+      style: {
+        width: 240,
+        boxSizing: 'border-box',
+        backgroundColor: theme.palette.background.paper,
+      }
+    }}
+    {...props}
+  />
+);
 
-const NavLink = styled(Link)(({ theme }) => ({
-  textDecoration: 'none',
-  color: 'inherit',
-}));
+const NavLink = props => (
+  <Link style={{ textDecoration: 'none', color: 'inherit' }} {...props} />
+);
 
 const App = () => {
   const [drawerOpen, setDrawerOpen] = React.useState(false);
@@ -195,9 +187,9 @@ const App = () => {
   ];
   
   const drawer = (
-    <Box sx={{ width: 240 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 2 }}>
-        <Logo variant="h6">
+    <Box width={240}>
+      <Box display="flex" justifyContent="space-between" alignItems="center" p={2}>
+        <Logo>
           Hatchling<span>.</span>
         </Logo>
         {isMobile && (
@@ -232,11 +224,11 @@ const App = () => {
                 aria-label="open drawer"
                 edge="start"
                 onClick={toggleDrawer}
-                sx={{ mr: 2 }}
+                style={{ marginRight: theme.spacing(2) }}
               >
                 <MenuIcon />
               </IconButton>
-              <Logo variant="h6" component="div" sx={{ flexGrow: 1 }}>
+              <Logo style={{ flexGrow: 1 }}>
                 Hatchling<span>.</span>
               </Logo>
               <Button color="inherit" component={Link} to="/assistant">
@@ -253,7 +245,7 @@ const App = () => {
             {drawer}
           </NavDrawer>
           
-          <MainContent sx={{ ml: isMobile ? 0 : '240px' }}>
+          <MainContent style={{ marginLeft: isMobile ? 0 : '240px' }}>
             <Container maxWidth="lg">
               <Routes>
                 <Route path="/" element={<Dashboard />} />

@@ -9,67 +9,82 @@ import {
   ListItem, 
   ListItemText, 
   Divider,
-  CircularProgress,
-  Alert
-} from '@mui/material';
-import { styled } from '@mui/material/styles';
-import SendIcon from '@mui/icons-material/Send';
+  CircularProgress
+} from '@material-ui/core';
+import Alert from '@material-ui/lab/Alert';
+import SendIcon from '@material-ui/icons/Send';
 import ApiService from '../services/ApiService';
 
-// Styled components
-const ChatContainer = styled(Paper)(({ theme }) => ({
-  padding: theme.spacing(2),
-  height: '100%',
-  display: 'flex',
-  flexDirection: 'column',
-  borderRadius: theme.shape.borderRadius,
-  boxShadow: theme.shadows[2],
-}));
+// Styled components using makeStyles approach
+const ChatContainer = props => (
+  <Paper style={{ 
+    padding: 16, 
+    height: '100%', 
+    display: 'flex', 
+    flexDirection: 'column', 
+    borderRadius: 12,
+    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)'
+  }} {...props} />
+);
 
-const MessageList = styled(List)(({ theme }) => ({
-  flexGrow: 1,
-  overflow: 'auto',
-  padding: theme.spacing(1),
-  marginBottom: theme.spacing(2),
-  backgroundColor: theme.palette.background.default,
-  borderRadius: theme.shape.borderRadius,
-}));
+const MessageList = props => (
+  <List style={{ 
+    flexGrow: 1, 
+    overflow: 'auto', 
+    padding: 8, 
+    marginBottom: 16, 
+    backgroundColor: '#f8f9fa', 
+    borderRadius: 12 
+  }} {...props} />
+);
 
-const MessageItem = styled(ListItem)(({ theme, isUser }) => ({
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: isUser ? 'flex-end' : 'flex-start',
-  padding: theme.spacing(1),
-}));
+const MessageItem = ({ isUser, ...props }) => (
+  <ListItem style={{ 
+    display: 'flex', 
+    flexDirection: 'column', 
+    alignItems: isUser ? 'flex-end' : 'flex-start', 
+    padding: 8 
+  }} {...props} />
+);
 
-const MessageBubble = styled(Box)(({ theme, isUser }) => ({
-  backgroundColor: isUser ? theme.palette.primary.light : theme.palette.grey[100],
-  color: isUser ? theme.palette.primary.contrastText : theme.palette.text.primary,
-  padding: theme.spacing(1, 2),
-  borderRadius: theme.shape.borderRadius,
-  maxWidth: '80%',
-  wordBreak: 'break-word',
-}));
+const MessageBubble = ({ isUser, children, ...props }) => (
+  <Box style={{ 
+    backgroundColor: isUser ? '#8e99f3' : '#f1f3f4', 
+    color: isUser ? '#ffffff' : '#37474f', 
+    padding: '8px 16px', 
+    borderRadius: 12, 
+    maxWidth: '80%', 
+    wordBreak: 'break-word' 
+  }} {...props}>
+    {children}
+  </Box>
+);
 
-const MessageTime = styled(Typography)(({ theme }) => ({
-  fontSize: '0.75rem',
-  color: theme.palette.text.secondary,
-  marginTop: theme.spacing(0.5),
-}));
+const MessageTime = props => (
+  <Typography style={{ 
+    fontSize: '0.75rem', 
+    color: '#78909c', 
+    marginTop: 4 
+  }} {...props} />
+);
 
-const InputContainer = styled(Box)(({ theme }) => ({
-  display: 'flex',
-  padding: theme.spacing(1),
-  backgroundColor: theme.palette.background.paper,
-  borderRadius: theme.shape.borderRadius,
-}));
+const InputContainer = props => (
+  <Box style={{ 
+    display: 'flex', 
+    padding: 8, 
+    backgroundColor: '#ffffff', 
+    borderRadius: 12 
+  }} {...props} />
+);
 
-const DisclaimerText = styled(Typography)(({ theme }) => ({
-  fontSize: '0.75rem',
-  color: theme.palette.text.secondary,
-  fontStyle: 'italic',
-  marginBottom: theme.spacing(1),
-}));
+const DisclaimerText = props => (
+  <Typography style={{ 
+    fontSize: '0.75rem', 
+    color: '#78909c', 
+    fontStyle: 'italic', 
+    marginBottom: 8 
+  }} {...props} />
+);
 
 const ParentAssistantChat = ({ userId }) => {
   const [messages, setMessages] = useState([]);
@@ -161,8 +176,8 @@ const ParentAssistantChat = ({ userId }) => {
   // Render subscription required message
   if (subscriptionStatus !== 'active' && subscriptionStatus !== 'trial') {
     return (
-      <Box sx={{ p: 2 }}>
-        <Alert severity="info" sx={{ mb: 2 }}>
+      <Box p={2}>
+        <Alert severity="info" style={{ marginBottom: 16 }}>
           Upgrade to Hatchling Premium to access the Parent Support Assistant.
         </Alert>
         <Button 
@@ -190,8 +205,8 @@ const ParentAssistantChat = ({ userId }) => {
       
       <MessageList>
         {messages.length === 0 ? (
-          <Box sx={{ p: 2, textAlign: 'center' }}>
-            <Typography variant="body2" color="text.secondary">
+          <Box p={2} textAlign="center">
+            <Typography variant="body2" color="textSecondary">
               Ask me anything about your baby's routine or general parenting questions.
             </Typography>
           </Box>
@@ -206,7 +221,7 @@ const ParentAssistantChat = ({ userId }) => {
           ))
         )}
         {loading && (
-          <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
+          <Box display="flex" justifyContent="center" p={2}>
             <CircularProgress size={24} />
           </Box>
         )}
@@ -214,7 +229,7 @@ const ParentAssistantChat = ({ userId }) => {
       </MessageList>
       
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert severity="error" style={{ marginBottom: 16 }}>
           {error}
         </Alert>
       )}
@@ -230,8 +245,8 @@ const ParentAssistantChat = ({ userId }) => {
           size="small"
           disabled={loading}
           multiline
-          maxRows={3}
-          sx={{ mr: 1 }}
+          rowsMax={3}
+          style={{ marginRight: 8 }}
         />
         <Button
           variant="contained"

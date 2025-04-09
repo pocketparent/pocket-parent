@@ -9,47 +9,54 @@ import {
   ListItemText, 
   Divider,
   CircularProgress,
-  Alert,
   Badge,
   Avatar,
   Chip
-} from '@mui/material';
-import { styled } from '@mui/material/styles';
-import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import PersonIcon from '@mui/icons-material/Person';
-import SmsIcon from '@mui/icons-material/Sms';
+} from '@material-ui/core';
+import Alert from '@material-ui/lab/Alert';
+import AccessTimeIcon from '@material-ui/icons/AccessTime';
+import PersonIcon from '@material-ui/icons/Person';
+import SmsIcon from '@material-ui/icons/Sms';
 import ApiService from '../services/ApiService';
 
-// Styled components
-const UpdatesContainer = styled(Paper)(({ theme }) => ({
-  padding: theme.spacing(2),
-  height: '100%',
-  borderRadius: theme.shape.borderRadius,
-  boxShadow: theme.shadows[2],
-}));
+// Styled components using makeStyles approach
+const UpdatesContainer = props => (
+  <Paper style={{ 
+    padding: 16, 
+    height: '100%', 
+    borderRadius: 12, 
+    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)' 
+  }} {...props} />
+);
 
-const UpdatesList = styled(List)(({ theme }) => ({
-  maxHeight: '400px',
-  overflow: 'auto',
-  padding: 0,
-}));
+const UpdatesList = props => (
+  <List style={{ 
+    maxHeight: '400px', 
+    overflow: 'auto', 
+    padding: 0 
+  }} {...props} />
+);
 
-const UpdateItem = styled(ListItem)(({ theme, status }) => ({
-  padding: theme.spacing(1, 2),
-  marginBottom: theme.spacing(1),
-  borderLeft: `4px solid ${
-    status === 'on-track' ? theme.palette.success.main :
-    status === 'off-track' ? theme.palette.warning.main :
-    theme.palette.info.main
-  }`,
-  backgroundColor: theme.palette.background.default,
-  borderRadius: theme.shape.borderRadius,
-}));
+const UpdateItem = ({ status, ...props }) => (
+  <ListItem style={{ 
+    padding: '8px 16px', 
+    marginBottom: 8, 
+    borderLeft: `4px solid ${
+      status === 'on-track' ? '#66bb6a' : 
+      status === 'off-track' ? '#ffa726' : 
+      '#29b6f6'
+    }`,
+    backgroundColor: '#f8f9fa', 
+    borderRadius: 12 
+  }} {...props} />
+);
 
-const CaregiverChip = styled(Chip)(({ theme }) => ({
-  marginRight: theme.spacing(1),
-  marginBottom: theme.spacing(1),
-}));
+const CaregiverChip = props => (
+  <Chip style={{ 
+    marginRight: 8, 
+    marginBottom: 8 
+  }} {...props} />
+);
 
 const CaregiverUpdates = ({ userId, babyId }) => {
   const [updates, setUpdates] = useState([]);
@@ -156,7 +163,7 @@ const CaregiverUpdates = ({ userId, babyId }) => {
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '200px' }}>
+      <Box display="flex" justifyContent="center" alignItems="center" height="200px">
         <CircularProgress />
       </Box>
     );
@@ -164,7 +171,7 @@ const CaregiverUpdates = ({ userId, babyId }) => {
 
   if (error) {
     return (
-      <Alert severity="error" sx={{ mb: 2 }}>
+      <Alert severity="error" style={{ marginBottom: 16 }}>
         {error}
       </Alert>
     );
@@ -177,8 +184,8 @@ const CaregiverUpdates = ({ userId, babyId }) => {
       </Typography>
       
       {updates.length === 0 ? (
-        <Box sx={{ p: 2, textAlign: 'center' }}>
-          <Typography variant="body2" color="text.secondary">
+        <Box p={2} textAlign="center">
+          <Typography variant="body2" color="textSecondary">
             No caregiver updates yet.
           </Typography>
         </Box>
@@ -186,8 +193,8 @@ const CaregiverUpdates = ({ userId, babyId }) => {
         <UpdatesList>
           {Object.keys(groupedUpdates).map(date => (
             <React.Fragment key={date}>
-              <Box sx={{ p: 1, bgcolor: 'background.paper' }}>
-                <Typography variant="subtitle2" color="text.secondary">
+              <Box p={1} bgcolor="background.paper">
+                <Typography variant="subtitle2" color="textSecondary">
                   {date}
                 </Typography>
               </Box>
@@ -196,34 +203,34 @@ const CaregiverUpdates = ({ userId, babyId }) => {
                 <UpdateItem key={update.id} status={update.status}>
                   <ListItemText
                     primary={
-                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+                      <Box display="flex" alignItems="center" mb={0.5}>
                         <Badge
                           color={update.type === 'assistant' ? 'secondary' : 'primary'}
                           variant="dot"
-                          sx={{ mr: 1 }}
+                          style={{ marginRight: 8 }}
                         >
                           {update.type === 'assistant' ? 
-                            <Avatar sx={{ width: 24, height: 24, bgcolor: 'secondary.main' }}>AI</Avatar> :
-                            <Avatar sx={{ width: 24, height: 24, bgcolor: 'primary.main' }}><SmsIcon fontSize="small" /></Avatar>
+                            <Avatar style={{ width: 24, height: 24, backgroundColor: '#26a69a' }}>AI</Avatar> :
+                            <Avatar style={{ width: 24, height: 24, backgroundColor: '#5c6bc0' }}><SmsIcon fontSize="small" /></Avatar>
                           }
                         </Badge>
-                        <Typography variant="body1" component="span" sx={{ fontWeight: 'medium' }}>
+                        <Typography variant="body1" component="span" style={{ fontWeight: 500 }}>
                           {update.caregiver}
                         </Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ ml: 'auto' }}>
+                        <Typography variant="body2" color="textSecondary" style={{ marginLeft: 'auto' }}>
                           {update.time}
                         </Typography>
                       </Box>
                     }
                     secondary={
                       <>
-                        <Typography variant="body2" sx={{ mb: 1 }}>
+                        <Typography variant="body2" style={{ marginBottom: 8 }}>
                           {update.message}
                         </Typography>
                         
                         {update.ai_response && (
-                          <Box sx={{ mt: 1, p: 1, bgcolor: 'background.paper', borderRadius: 1 }}>
-                            <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                          <Box mt={1} p={1} bgcolor="background.paper" borderRadius={1}>
+                            <Typography variant="body2" color="textSecondary" style={{ fontStyle: 'italic' }}>
                               {update.ai_response}
                             </Typography>
                           </Box>
