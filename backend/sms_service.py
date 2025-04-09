@@ -1,11 +1,16 @@
 import os
 import json
+import logging
 from twilio.rest import Client
 from dotenv import load_dotenv
 from services.openai_service import OpenAIService
 
 # Load environment variables
 load_dotenv()
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class SMSService:
     """
@@ -44,7 +49,7 @@ class SMSService:
         user = self.data_manager.get_user(user_id)
         if not user:
             # Create a new user with trial subscription if not exists
-            user = self.data_manager.save_user({
+            user = self.data_manager.update_user(user_id, {
                 'id': user_id,
                 'phone_number': from_number,
                 'subscription_status': 'trial'
@@ -58,14 +63,14 @@ class SMSService:
         }
         
         # Save the update
-        saved_update = self.data_manager.save_caregiver_update(update)
+        saved_update = self.data_manager.add_caregiver_update(update, user_id)
         
         # Check if this is a question for the AI assistant
         if self._is_ai_question(message):
             # Process as AI question if subscription is active or trial
             if user.get('subscription_status') in ['active', 'trial']:
                 # Get user's routines for context
-                routines = self.data_manager.get_user_routines(user_id)
+                routines = self.data_manager.get_routines(user_id)
                 latest_routine = routines[-1] if routines else None
                 
                 # Check if it's a routine-specific question
@@ -79,7 +84,8 @@ class SMSService:
                 
                 # Add AI response to the saved update
                 saved_update['ai_response'] = response
-                self.data_manager.save_caregiver_update(saved_update)
+                # Update the saved update in the database
+                self.data_manager.add_caregiver_update(saved_update, user_id)
             else:
                 # Send subscription required message
                 subscription_message = "This feature requires an active Hatchling subscription. Please contact the account owner to upgrade."
@@ -87,7 +93,8 @@ class SMSService:
                 
                 # Add subscription message to the saved update
                 saved_update['ai_response'] = subscription_message
-                self.data_manager.save_caregiver_update(saved_update)
+                # Update the saved update in the database
+                self.data_manager.add_caregiver_update(saved_update, user_id)
         else:
             # Process as routine update
             # This will be handled by the parser service in the main app.py
@@ -105,7 +112,7 @@ class SMSService:
         Returns:
             list: List of messages for the user
         """
-        return self.data_manager.get_user_updates(user_id)
+        return self.data_manager.get_caregiver_updates(user_id)
     
     def _send_sms(self, message, to_number):
         """
@@ -119,7 +126,7 @@ class SMSService:
             bool: True if successful, False otherwise
         """
         if not self.client:
-            print("Twilio client not initialized. Check your credentials.")
+            logger.warning("Twilio client not initialized. Check your credentials.")
             return False
         
         try:
@@ -139,7 +146,7 @@ class SMSService:
             
             return True
         except Exception as e:
-            print(f"Error sending SMS: {str(e)}")
+            logger.error(f"Error sending SMS: {str(e)}")
             return False
     
     def _is_ai_question(self, message):

@@ -4,6 +4,7 @@ import os
 class OpenAIService:
     def __init__(self):
         self.api_key = os.getenv("OPENAI_API_KEY")
+        # Set API key directly for version 0.27.0 compatibility
         openai.api_key = self.api_key
 
     def ask_question(self, prompt):
@@ -37,7 +38,7 @@ class OpenAIService:
             # Create the prompt for the legacy API
             prompt = f"{system_message}\n\nUser: {query}\n\nAssistant:"
             
-            # Call the OpenAI API using legacy method
+            # Call the OpenAI API using legacy method for version 0.27.0
             response = openai.Completion.create(
                 model="text-davinci-003",
                 prompt=prompt,
@@ -57,7 +58,7 @@ class OpenAIService:
         except Exception as e:
             # Return a friendly error message
             disclaimer = "This is an AI assistant and may not always be accurate. For medical questions or concerns, please consult your pediatrician or a qualified professional."
-            return f"{disclaimer}\n\nI'm sorry, I couldn't process your question at the moment. Please try again later."
+            return f"{disclaimer}\n\nI'm sorry, I couldn't process your question at the moment. Please try again later. Error: {str(e)}"
     
     def _build_system_message(self, user_data, baby_data):
         """
@@ -139,4 +140,39 @@ class OpenAIService:
         except Exception as e:
             # Return a friendly error message
             disclaimer = "This is an AI assistant and may not always be accurate. For medical questions or concerns, please consult your pediatrician or a qualified professional."
-            return f"{disclaimer}\n\nI'm sorry, I couldn't process your question about the routine at the moment. Please try again later."
+            return f"{disclaimer}\n\nI'm sorry, I couldn't process your question about the routine at the moment. Please try again later. Error: {str(e)}"
+    
+    # Add a method for suggestions to handle the API call in app.py
+    def get_suggestions(self, prompt):
+        """
+        Get suggestions for baby routine based on a prompt.
+        
+        Args:
+            prompt (str): The prompt for generating suggestions
+            
+        Returns:
+            list: List of suggestions
+        """
+        try:
+            # Create a prompt for the legacy API
+            full_prompt = f"Generate 3 helpful suggestions for baby routine based on: {prompt}\n\n1."
+            
+            # Call the OpenAI API using legacy method
+            response = openai.Completion.create(
+                model="text-davinci-003",
+                prompt=full_prompt,
+                max_tokens=300,
+                temperature=0.7
+            )
+            
+            # Extract and format the response
+            response_text = "1." + response.choices[0].text.strip()
+            suggestions = response_text.split("\n")
+            
+            # Clean up the suggestions
+            suggestions = [s.strip() for s in suggestions if s.strip()]
+            
+            return suggestions
+        except Exception as e:
+            # Return a friendly error message
+            return [f"Sorry, I couldn't generate suggestions at the moment. Please try again later. Error: {str(e)}"]

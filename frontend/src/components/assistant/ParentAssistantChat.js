@@ -14,7 +14,7 @@ import { makeStyles } from '@material-ui/core/styles';
 import SendIcon from '@material-ui/icons/Send';
 import ChildCareIcon from '@material-ui/icons/ChildCare';
 import PersonIcon from '@material-ui/icons/Person';
-import ApiService from '../../services/ApiService';
+import axios from 'axios';
 
 const useStyles = makeStyles((theme) => ({
   root: {
@@ -169,6 +169,9 @@ const ParentAssistantChat = ({ userId, childData }) => {
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef(null);
   
+  // Get API base URL from environment
+  const baseUrl = process.env.REACT_APP_API_URL || process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
+  
   // Scroll to bottom of messages when new messages are added
   useEffect(() => {
     scrollToBottom();
@@ -204,13 +207,19 @@ const ParentAssistantChat = ({ userId, childData }) => {
     setIsLoading(true);
     
     try {
-      // Call API to get assistant response
-      const response = await ApiService.sendAssistantMessage(userId, userMessage.text);
+      // Get user ID from localStorage or use default
+      const currentUserId = userId || localStorage.getItem('userId') || 'default';
+      
+      // Call API to get assistant response directly with axios
+      const response = await axios.post(`${baseUrl}/assistant`, {
+        message: userMessage.text,
+        user_id: currentUserId
+      });
       
       // Add assistant response to chat
       const assistantMessage = {
         sender: 'assistant',
-        text: response.message,
+        text: response.data.message,
         timestamp: new Date().toISOString()
       };
       

@@ -300,6 +300,9 @@ const Dashboard = () => {
   const [error, setError] = useState(null);
   const [babyName, setBabyName] = useState('Baby');
   
+  // Get API base URL from environment
+  const baseUrl = process.env.REACT_APP_API_URL || process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
+  
   // Fetch routines and caregiver updates
   useEffect(() => {
     const fetchData = async () => {
@@ -308,11 +311,18 @@ const Dashboard = () => {
         // Format date for API requests
         const dateStr = format(selectedDate, 'yyyy-MM-dd');
         
-        // Fetch routines
-        const routinesResponse = await axios.get('/api/routines');
+        // Get user ID from localStorage or use default
+        const userId = localStorage.getItem('userId') || 'default';
         
-        // Fetch caregiver updates
-        const updatesResponse = await axios.get('/api/caregiver-updates');
+        // Fetch routines with proper base URL
+        const routinesResponse = await axios.get(`${baseUrl}/api/routines`, {
+          params: { user_id: userId }
+        });
+        
+        // Fetch caregiver updates with proper base URL
+        const updatesResponse = await axios.get(`${baseUrl}/api/updates`, {
+          params: { user_id: userId }
+        });
         
         // Set data
         setRoutines(routinesResponse.data || []);
@@ -332,7 +342,7 @@ const Dashboard = () => {
     };
     
     fetchData();
-  }, [selectedDate]);
+  }, [selectedDate, baseUrl]);
   
   // Navigate to previous day
   const goToPreviousDay = () => {
@@ -553,7 +563,7 @@ const Dashboard = () => {
               <div className={classes.activityStatus}>
                 {renderActivityStatus(activity)}
                 {activity.source === 'caregiver' && activity.caregiver_name && (
-                  <Chip 
+                  <Chip
                     size="small"
                     label={activity.caregiver_name}
                     className={classes.caregiverChip}
@@ -569,13 +579,13 @@ const Dashboard = () => {
   
   return (
     <div className={classes.root}>
-      <Container maxWidth="md">
+      <Container>
         <div className={classes.header}>
           <Typography variant="h4" gutterBottom>
             {babyName}'s Dashboard
           </Typography>
           <Typography variant="body1" color="textSecondary">
-            Track and manage daily routines and activities
+            Track daily activities and routines
           </Typography>
         </div>
         
@@ -585,28 +595,22 @@ const Dashboard = () => {
           </IconButton>
           
           <div className={classes.dateDisplay}>
-            <TodayIcon style={{ marginRight: 8 }} />
+            <IconButton 
+              color="primary" 
+              onClick={goToToday}
+              disabled={isToday(selectedDate)}
+            >
+              <TodayIcon />
+            </IconButton>
             <Typography variant="h6">
               {format(selectedDate, 'EEEE, MMMM d, yyyy')}
               {isToday(selectedDate) && ' (Today)'}
             </Typography>
           </div>
           
-          <div>
-            {!isToday(selectedDate) && (
-              <Button 
-                variant="outlined" 
-                size="small" 
-                onClick={goToToday}
-                style={{ marginRight: 8 }}
-              >
-                Today
-              </Button>
-            )}
-            <IconButton onClick={goToNextDay}>
-              <ArrowForwardIcon />
-            </IconButton>
-          </div>
+          <IconButton onClick={goToNextDay}>
+            <ArrowForwardIcon />
+          </IconButton>
         </div>
         
         {loading ? (

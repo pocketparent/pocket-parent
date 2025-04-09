@@ -9,6 +9,7 @@ import {
   CircularProgress
 } from '@material-ui/core';
 import { makeStyles } from '@material-ui/core/styles';
+import axios from 'axios';
 
 const useStyles = makeStyles((theme) => ({
   container: {
@@ -67,6 +68,12 @@ const useStyles = makeStyles((theme) => ({
     color: theme.palette.error.main,
     marginTop: theme.spacing(2),
     textAlign: 'center',
+  },
+  helpText: {
+    marginTop: theme.spacing(2),
+    textAlign: 'center',
+    color: '#666',
+    fontSize: '0.85rem',
   }
 }));
 
@@ -76,6 +83,9 @@ const AdminLogin = ({ onLogin }) => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Get API base URL from environment
+  const baseUrl = process.env.REACT_APP_API_URL || process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -87,26 +97,43 @@ const AdminLogin = ({ onLogin }) => {
     setError('');
     
     try {
-      // In a real app, this would be an API call to verify admin credentials
-      // For demo purposes, we'll use a hardcoded check
-      if (email === 'admin@hatchling.ai' && password === 'admin123') {
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
+      // Call the backend login API
+      const response = await axios.post(`${baseUrl}/login`, {
+        email: email,
+        password: password
+      });
+      
+      // Check if login was successful
+      if (response.data.success) {
+        const userData = response.data.user;
         
-        const adminData = {
-          id: 'admin_001',
-          name: 'Admin User',
-          email: email,
-          role: 'admin'
-        };
-        
-        onLogin(adminData);
+        // Check if user has admin role
+        if (userData.role === 'admin') {
+          onLogin(userData);
+        } else {
+          setError('You do not have admin privileges');
+        }
       } else {
         setError('Invalid email or password');
       }
     } catch (error) {
-      setError('Login failed. Please try again.');
       console.error('Login error:', error);
+      
+      if (error.response) {
+        // The request was made and the server responded with a status code
+        // that falls out of the range of 2xx
+        if (error.response.status === 401) {
+          setError('Invalid email or password');
+        } else {
+          setError(`Login failed: ${error.response.data.error || 'Please try again'}`);
+        }
+      } else if (error.request) {
+        // The request was made but no response was received
+        setError('Cannot connect to server. Please check your internet connection.');
+      } else {
+        // Something happened in setting up the request that triggered an Error
+        setError('Login failed. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -148,7 +175,7 @@ const AdminLogin = ({ onLogin }) => {
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="admin@hatchling.ai"
+            placeholder="admin@hatchling.com"
             onKeyPress={handleKeyPress}
           />
           
@@ -179,6 +206,10 @@ const AdminLogin = ({ onLogin }) => {
           >
             {loading ? <CircularProgress size={24} color="inherit" /> : 'Login'}
           </Button>
+          
+          <Typography variant="body2" className={classes.helpText}>
+            Default admin credentials: admin@hatchling.com / Hatchling2025!
+          </Typography>
         </Box>
       </Paper>
     </Container>
