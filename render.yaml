@@ -2,16 +2,16 @@ services:
   # Frontend service configuration
   - type: web
     name: hatchling-frontend
-    env: static
+    env: node
     buildCommand: ./build.sh
-    staticPublishPath: ./build
+    startCommand: npx serve -s build -l $PORT
     envVars:
+      - key: NODE_VERSION
+        value: 18.18.0
       - key: REACT_APP_API_BASE_URL
         value: https://hatchling-backend.onrender.com
       - key: REACT_APP_POLLING_INTERVAL
         value: 5000
-      - key: NODE_VERSION
-        value: 18.18.0
 
   # Backend service configuration
   - type: web
