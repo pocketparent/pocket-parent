@@ -1,21 +1,21 @@
 #!/bin/bash
-# Build script for Hatchling frontend
+set -e
 
-# Print commands for debugging
-set -x
-
-# Display Node.js version for debugging
+# Display versions
 node --version
 npm --version
 
-# Clean up
+# Clean install
 rm -rf node_modules
-
-# Clean npm cache
 npm cache clean --force
 
-# Install dependencies
-npm install
+# Install dependencies with more verbose output
+echo "Installing dependencies..."
+npm install --loglevel verbose
 
-# Build the application
-npm run build
+# Run build with CI=false to ignore warnings
+echo "Building production bundle..."
+CI=false npm run build
+
+# If build succeeds, display success message
+echo "Build completed successfully!"
