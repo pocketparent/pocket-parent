@@ -5,8 +5,9 @@ import CssBaseline from '@material-ui/core/CssBaseline';
 import Dashboard from './components/Dashboard';
 import MultiUserDashboardWithErrorHandling from './components/MultiUserDashboardWithErrorHandling';
 import ErrorBoundary from './components/ErrorBoundary';
-import { LoadingFallback } from './utils/apiUtils';
+import { LoadingFallback } from './utils/fallbackComponents';
 
+// Create a theme instance
 const theme = createMuiTheme({
   palette: {
     primary: {
@@ -40,26 +41,29 @@ const theme = createMuiTheme({
   },
 });
 
+// Sample mock data for immediate display
+const MOCK_DATA = {
+  babyName: 'Baby',
+  activities: [
+    { type: 'wake', start_time: '07:30', notes: 'Woke up happy' },
+    { type: 'feeding', start_time: '08:00', duration: '20 minutes', feeding_type: 'Bottle', notes: '4oz formula' },
+    { type: 'diaper', start_time: '09:15', diaper_type: 'Wet' },
+    { type: 'nap', start_time: '10:00', duration: '45 minutes' },
+    { type: 'feeding', start_time: '12:00', duration: '25 minutes', feeding_type: 'Bottle', notes: '5oz formula' }
+  ]
+};
+
 function App() {
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // Changed to false to skip initial loading
+  const [mockMode, setMockMode] = useState(true); // Start with mock mode enabled
   
-  // Simulate app initialization
+  // Skip initialization delay and loading screen
   useEffect(() => {
-    // Check if the API is available
-    const checkApiAvailability = async () => {
-      try {
-        // Add a small delay to ensure the app doesn't flash loading state for fast connections
-        await new Promise(resolve => setTimeout(resolve, 500));
-        setLoading(false);
-      } catch (error) {
-        console.error('Error during app initialization:', error);
-        setLoading(false);
-      }
-    };
-    
-    checkApiAvailability();
+    console.log('App initialized with mock data');
+    // We're not setting loading to false here anymore since we start with loading=false
   }, []);
   
+  // If loading, show loading fallback - but we start with loading=false now
   if (loading) {
     return <LoadingFallback message="Initializing Hatchling..." />;
   }
@@ -71,7 +75,7 @@ function App() {
         <Switch>
           <Route exact path="/">
             <ErrorBoundary>
-              <MultiUserDashboardWithErrorHandling />
+              <MultiUserDashboardWithErrorHandling initialData={MOCK_DATA} useMockData={mockMode} />
             </ErrorBoundary>
           </Route>
           <Route path="/dashboard">
@@ -81,7 +85,7 @@ function App() {
           </Route>
           <Route path="*">
             <ErrorBoundary>
-              <MultiUserDashboardWithErrorHandling />
+              <MultiUserDashboardWithErrorHandling initialData={MOCK_DATA} useMockData={mockMode} />
             </ErrorBoundary>
           </Route>
         </Switch>

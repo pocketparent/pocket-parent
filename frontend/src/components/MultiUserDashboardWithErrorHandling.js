@@ -51,7 +51,9 @@ import {
   Edit as EditIcon,
   Error as ErrorIcon,
   Wifi as WifiIcon,
-  WifiOff as WifiOffIcon
+  WifiOff as WifiOffIcon,
+  CloudOff as CloudOffIcon,
+  Info as InfoIcon
 } from '@material-ui/icons';
 import format from 'date-fns/format';
 import addDays from 'date-fns/addDays';
@@ -82,10 +84,24 @@ const useApiWithRetry = (url, options = {}) => {
     dependencies = [],
     onSuccess = () => {},
     onError = () => {},
-    mockData = null
+    mockData = null,
+    initialData = null
   } = options;
   
+  // Initialize with initialData if provided
+  useEffect(() => {
+    if (initialData) {
+      setData(initialData);
+      setStatus(API_STATES.SUCCESS);
+    }
+  }, [initialData]);
+  
   const executeRequest = async () => {
+    // Don't make the request if we're using initialData only
+    if (options.useInitialDataOnly) {
+      return;
+    }
+    
     // Clear any existing timeout
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
@@ -179,7 +195,10 @@ const useApiWithRetry = (url, options = {}) => {
   
   // Execute the request when dependencies change
   useEffect(() => {
-    executeRequest();
+    // Skip API call if we're using initialData only
+    if (!options.useInitialDataOnly) {
+      executeRequest();
+    }
     
     // Cleanup function to clear timeout on unmount or dependencies change
     return () => {
@@ -463,6 +482,22 @@ const useStyles = makeStyles((theme) => ({
   },
   offline: {
     backgroundColor: 'rgba(211, 47, 47, 0.1)',
+  },
+  mockDataBanner: {
+    backgroundColor: 'rgba(255, 152, 0, 0.1)',
+    padding: theme.spacing(1),
+    borderRadius: theme.spacing(1),
+    marginBottom: theme.spacing(2),
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mockDataIcon: {
+    color: '#ff9800',
+    marginRight: theme.spacing(1),
+  },
+  tryConnectButton: {
+    marginLeft: theme.spacing(2),
   }
 }));
 
@@ -609,13 +644,13 @@ const isSameDay = (date1, date2) => {
   );
 };
 
-const MultiUserDashboardWithErrorHandling = () => {
+const MultiUserDashboardWithErrorHandling = ({ initialData = null, useMockData = false }) => {
   const classes = useStyles();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [routines, setRoutines] = useState([]);
   const [caregiverUpdates, setCaregiverUpdates] = useState([]);
   const [activityLogs, setActivityLogs] = useState([]);
-  const [babyName, setBabyName] = useState('Baby');
+  const [babyName, setBabyName] = useState(initialData?.babyName || 'Baby');
   const [users, setUsers] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
   const [notifications, setNotifications] = useState([]);
@@ -625,20 +660,45 @@ const MultiUserDashboardWithErrorHandling = () => {
   const [inviteEmail, setInviteEmail] = useState('');
   const [connected, setConnected] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [usingMockData, setUsingMockData] = useState(useMockData);
+  const [tryingRealData, setTryingRealData] = useState(false);
   const socketRef = useRef(null);
+  
+  // Initialize with initial data if provided
+  useEffect(() => {
+    if (initialData) {
+      console.log('Using initial data:', initialData);
+      setBabyName(initialData.babyName || 'Baby');
+      
+      // Convert activities to routines format
+      if (initialData.activities) {
+        setRoutines([{
+          id: 1,
+          baby_name: initialData.babyName || 'Baby',
+          routine: initialData.activities
+        }]);
+      }
+      
+      // Set mock users
+      setUsers(MOCK_USERS);
+    }
+  }, [initialData]);
   
   // Monitor online/offline status
   useEffect(() => {
     const handleOnline = () => {
       console.log('App is online');
       setIsOnline(true);
-      // Refresh data when coming back online
-      fetchData();
+      // Don't automatically refresh data when coming back online if using mock data
+      if (!usingMockData) {
+        fetchData();
+      }
     };
     
     const handleOffline = () => {
       console.log('App is offline');
       setIsOnline(false);
+      setUsingMockData(true); // Automatically switch to mock data when offline
     };
     
     window.addEventListener('online', handleOnline);
@@ -648,7 +708,7 @@ const MultiUserDashboardWithErrorHandling = () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, []);
+  }, [usingMockData]);
   
   // Format date for API requests
   const dateStr = format(selectedDate, 'yyyy-MM-dd');
@@ -657,13 +717,32 @@ const MultiUserDashboardWithErrorHandling = () => {
   const routinesApi = useApiWithRetry(
     getApiUrl(`/api/routines?date=${dateStr}`),
     {
-      dependencies: [selectedDate, isOnline],
+      dependencies: [selectedDate, isOnline, tryingRealData],
       mockData: MOCK_ROUTINES,
+      initialData: initialData ? [{
+        id: 1,
+        baby_name: initialData.babyName || 'Baby',
+        routine: initialData.activities || []
+      }] : null,
+      useInitialDataOnly: usingMockData && !tryingRealData,
       onSuccess: (data) => {
+        if (tryingRealData) {
+          setUsingMockData(false);
+          setTryingRealData(false);
+        }
         setRoutines(data || []);
         // Extract baby name if available
         if (data && data.length > 0 && data[0].baby_name) {
           setBabyName(data[0].baby_name);
+        }
+      },
+      onError: () => {
+        if (tryingRealData) {
+          setTryingRealData(false);
+          // Keep using mock data if real data fetch fails
+          setUsingMockData(true);
+          setShowNotification(true);
+          setNotificationMessage('Could not connect to server. Using sample data instead.');
         }
       }
     }
@@ -673,8 +752,9 @@ const MultiUserDashboardWithErrorHandling = () => {
   const updatesApi = useApiWithRetry(
     getApiUrl(`/api/caregiver-updates?date=${dateStr}`),
     {
-      dependencies: [selectedDate, isOnline],
+      dependencies: [selectedDate, isOnline, tryingRealData],
       mockData: [],
+      useInitialDataOnly: usingMockData && !tryingRealData,
       onSuccess: (data) => {
         setCaregiverUpdates(data || []);
       }
@@ -685,8 +765,9 @@ const MultiUserDashboardWithErrorHandling = () => {
   const logsApi = useApiWithRetry(
     getApiUrl(`/api/activity-logs?date=${dateStr}`),
     {
-      dependencies: [selectedDate, isOnline],
+      dependencies: [selectedDate, isOnline, tryingRealData],
       mockData: [],
+      useInitialDataOnly: usingMockData && !tryingRealData,
       onSuccess: (data) => {
         setActivityLogs(data || []);
       }
@@ -697,8 +778,10 @@ const MultiUserDashboardWithErrorHandling = () => {
   const usersApi = useApiWithRetry(
     getApiUrl('/api/users'),
     {
-      dependencies: [isOnline],
+      dependencies: [isOnline, tryingRealData],
       mockData: MOCK_USERS,
+      initialData: MOCK_USERS,
+      useInitialDataOnly: usingMockData && !tryingRealData,
       onSuccess: (data) => {
         setUsers(data || []);
       }
@@ -709,8 +792,10 @@ const MultiUserDashboardWithErrorHandling = () => {
   const currentUserApi = useApiWithRetry(
     getApiUrl('/api/users/current'),
     {
-      dependencies: [isOnline],
+      dependencies: [isOnline, tryingRealData],
       mockData: MOCK_USERS[0],
+      initialData: MOCK_USERS[0],
+      useInitialDataOnly: usingMockData && !tryingRealData,
       onSuccess: (data) => {
         setCurrentUser(data || null);
       }
@@ -719,8 +804,8 @@ const MultiUserDashboardWithErrorHandling = () => {
   
   // Initialize socket connection
   useEffect(() => {
-    if (!isOnline) {
-      return; // Don't attempt socket connection when offline
+    if (!isOnline || usingMockData) {
+      return; // Don't attempt socket connection when offline or using mock data
     }
     
     try {
@@ -787,15 +872,27 @@ const MultiUserDashboardWithErrorHandling = () => {
     } catch (error) {
       console.error('Error setting up socket connection:', error);
     }
-  }, [isOnline]);
+  }, [isOnline, usingMockData]);
   
   // Fetch all data
   const fetchData = () => {
-    if (isOnline) {
+    if (isOnline && !usingMockData) {
       routinesApi.retry();
       updatesApi.retry();
       logsApi.retry();
       usersApi.retry();
+    }
+  };
+  
+  // Try to connect to real data
+  const tryRealData = () => {
+    if (isOnline) {
+      setTryingRealData(true);
+      setShowNotification(true);
+      setNotificationMessage('Attempting to connect to server...');
+    } else {
+      setShowNotification(true);
+      setNotificationMessage('Cannot connect while offline. Please check your internet connection.');
     }
   };
   
@@ -1137,6 +1234,14 @@ const MultiUserDashboardWithErrorHandling = () => {
   const handleInvite = async () => {
     if (!inviteEmail) return;
     
+    if (usingMockData) {
+      setNotificationMessage(`Invitation would be sent to ${inviteEmail} (mock mode)`);
+      setShowNotification(true);
+      setInviteEmail('');
+      setShowShareDialog(false);
+      return;
+    }
+    
     try {
       await axios.post(getApiUrl('/api/users/invite'), { email: inviteEmail });
       setNotificationMessage(`Invitation sent to ${inviteEmail}`);
@@ -1152,27 +1257,33 @@ const MultiUserDashboardWithErrorHandling = () => {
   
   // Check if any API calls are loading
   const isLoading = 
-    routinesApi.status === API_STATES.LOADING || 
-    updatesApi.status === API_STATES.LOADING || 
-    logsApi.status === API_STATES.LOADING || 
-    usersApi.status === API_STATES.LOADING || 
-    currentUserApi.status === API_STATES.LOADING;
+    !usingMockData && (
+      routinesApi.status === API_STATES.LOADING || 
+      updatesApi.status === API_STATES.LOADING || 
+      logsApi.status === API_STATES.LOADING || 
+      usersApi.status === API_STATES.LOADING || 
+      currentUserApi.status === API_STATES.LOADING
+    );
   
   // Check if any API calls have errors
   const hasError = 
-    routinesApi.status === API_STATES.ERROR || 
-    updatesApi.status === API_STATES.ERROR || 
-    logsApi.status === API_STATES.ERROR || 
-    usersApi.status === API_STATES.ERROR || 
-    currentUserApi.status === API_STATES.ERROR;
+    !usingMockData && (
+      routinesApi.status === API_STATES.ERROR || 
+      updatesApi.status === API_STATES.ERROR || 
+      logsApi.status === API_STATES.ERROR || 
+      usersApi.status === API_STATES.ERROR || 
+      currentUserApi.status === API_STATES.ERROR
+    );
   
   // Check if any API calls have timed out
   const hasTimeout = 
-    routinesApi.status === API_STATES.TIMEOUT || 
-    updatesApi.status === API_STATES.TIMEOUT || 
-    logsApi.status === API_STATES.TIMEOUT || 
-    usersApi.status === API_STATES.TIMEOUT || 
-    currentUserApi.status === API_STATES.TIMEOUT;
+    !usingMockData && (
+      routinesApi.status === API_STATES.TIMEOUT || 
+      updatesApi.status === API_STATES.TIMEOUT || 
+      logsApi.status === API_STATES.TIMEOUT || 
+      usersApi.status === API_STATES.TIMEOUT || 
+      currentUserApi.status === API_STATES.TIMEOUT
+    );
   
   // Get the first error to display
   const firstError = 
@@ -1182,18 +1293,18 @@ const MultiUserDashboardWithErrorHandling = () => {
     usersApi.error || 
     currentUserApi.error;
   
-  // If offline, show offline fallback
-  if (!isOnline) {
+  // If offline and not using mock data, show offline fallback
+  if (!isOnline && !usingMockData) {
     return <OfflineFallback message={`You're currently offline. Here's a preview of ${babyName}'s dashboard with sample data.`} />;
   }
   
-  // If loading, show loading fallback
-  if (isLoading) {
+  // If loading and not using mock data, show loading fallback
+  if (isLoading && !usingMockData) {
     return <LoadingFallback message="Loading dashboard data..." />;
   }
   
-  // If error, show error fallback
-  if (hasError) {
+  // If error and not using mock data, show error fallback
+  if (hasError && !usingMockData) {
     return (
       <ApiErrorFallback 
         error={firstError} 
@@ -1215,12 +1326,35 @@ const MultiUserDashboardWithErrorHandling = () => {
           </Typography>
         </div>
         
+        {/* Mock data banner */}
+        {usingMockData && (
+          <div className={classes.mockDataBanner}>
+            <InfoIcon className={classes.mockDataIcon} />
+            <Typography variant="body2">
+              Viewing sample data
+            </Typography>
+            {isOnline && !tryingRealData && (
+              <Button 
+                variant="outlined" 
+                size="small" 
+                color="primary"
+                onClick={tryRealData}
+                className={classes.tryConnectButton}
+                disabled={tryingRealData}
+              >
+                {tryingRealData ? 'Connecting...' : 'Connect to Server'}
+              </Button>
+            )}
+          </div>
+        )}
+        
+        {/* Connection status */}
         <div className={`${classes.connectionStatus} ${isOnline ? classes.online : classes.offline}`}>
           {isOnline ? (
             <>
               <WifiIcon style={{ marginRight: 8, color: '#4caf50' }} />
               <Typography variant="body2">
-                {connected ? 'Connected with real-time updates' : 'Connected'}
+                {connected && !usingMockData ? 'Connected with real-time updates' : 'Connected'}
               </Typography>
             </>
           ) : (
