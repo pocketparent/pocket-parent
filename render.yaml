@@ -1,0 +1,36 @@
+services:
+  # Frontend service configuration
+  - type: web
+    name: hatchling-frontend
+    env: static
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./build
+    envVars:
+      - key: REACT_APP_API_BASE_URL
+        value: https://hatchling-backend.onrender.com
+      - key: REACT_APP_POLLING_INTERVAL
+        value: 5000
+
+  # Backend service configuration
+  - type: web
+    name: hatchling-backend
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn -b 0.0.0.0:$PORT app:app
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: DEBUG
+        value: false
+      - key: CORS_ALLOWED_ORIGINS
+        value: https://myhatchling.ai,https://hatchling-frontend.onrender.com
+      - key: PORT
+        value: 8000
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_PHONE_NUMBER
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
