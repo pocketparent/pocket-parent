@@ -19,8 +19,9 @@ init_database()
 app = Flask(__name__)
 
 # Configure CORS to allow requests from specified origins
-CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:3000').split(',')
-CORS(app, resources={r"/*": {"origins": CORS_ALLOWED_ORIGINS}})
+# Updated to include both localhost and production domains by default
+CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:3000,https://myhatchling.ai,https://www.myhatchling.ai').split(',')
+CORS(app, resources={r"/*": {"origins": CORS_ALLOWED_ORIGINS, "supports_credentials": True, "allow_headers": ["Content-Type", "Authorization"]}})
 
 # Data storage paths
 DATA_DIR = os.getenv('DATA_DIR', 'data')
@@ -96,7 +97,8 @@ def sms_webhook():
         return jsonify(result)
     
     except Exception as e:
-        return jsonify({"error": str(e)}), 400
+        app.logger.error(f"Error in SMS webhook: {str(e)}")
+        return jsonify({"error": str(e), "status": "error"}), 400
 
 # Get SMS messages (GET method for frontend)
 @app.route('/sms', methods=['GET'])
@@ -106,18 +108,19 @@ def get_sms():
         updates = data_manager.get_caregiver_updates(user_id)
         return jsonify(updates)
     except Exception as e:
-        return jsonify({"error": str(e)}), 400
+        app.logger.error(f"Error getting SMS messages: {str(e)}")
+        return jsonify({"error": str(e), "status": "error"}), 400
 
 # Assistant endpoint for Parent Assistant feature
 @app.route('/assistant', methods=['POST'])
 def assistant():
     try:
-        print("Assistant endpoint called")
+        app.logger.info("Assistant endpoint called")
         data = request.get_json()
         message = data.get('message', '')
         user_id = data.get('user_id', 'default')
         
-        print(f"Request data: user_id={user_id}, message={message}")
+        app.logger.info(f"Request data: user_id={user_id}, message={message}")
         
         # Get user data for context
         user_data = data_manager.get_user(user_id)
@@ -128,12 +131,12 @@ def assistant():
         # Get response from OpenAI
         response = openai_service.get_response(message, user_data, routines)
         
-        print(f"Generated response: {response[:100]}...")  # Log first 100 chars of response
+        app.logger.info(f"Generated response: {response[:100]}...")  # Log first 100 chars of response
         
-        return jsonify({"message": response})
+        return jsonify({"message": response, "status": "success"})
     except Exception as e:
-        print(f"Error in assistant endpoint: {str(e)}")
-        return jsonify({"error": str(e)}), 400
+        app.logger.error(f"Error in assistant endpoint: {str(e)}")
+        return jsonify({"error": str(e), "status": "error"}), 400
 
 # Users endpoint - GET
 @app.route('/users', methods=['GET'])
@@ -143,7 +146,8 @@ def get_user():
         user = data_manager.get_user(user_id)
         return jsonify(user)
     except Exception as e:
-        return jsonify({"error": str(e)}), 400
+        app.logger.error(f"Error getting user: {str(e)}")
+        return jsonify({"error": str(e), "status": "error"}), 400
 
 # Users endpoint - POST
 @app.route('/users', methods=['POST'])
@@ -155,7 +159,8 @@ def create_or_update_user():
         result = data_manager.update_user(user_id, user_data)
         return jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 400
+        app.logger.error(f"Error creating/updating user: {str(e)}")
+        return jsonify({"error": str(e), "status": "error"}), 400
 
 # User login endpoint
 @app.route('/login', methods=['POST'])
@@ -165,22 +170,27 @@ def login():
         email = data.get('email')
         password = data.get('password')
         
+        app.logger.info(f"Login attempt for email: {email}")
+        
         if not email or not password:
-            return jsonify({"error": "Email and password are required"}), 400
+            return jsonify({"error": "Email and password are required", "status": "error"}), 400
         
         # Authenticate user
         user = data_manager.authenticate_user(email, password)
         
         if not user:
-            return jsonify({"error": "Invalid email or password"}), 401
+            app.logger.warning(f"Failed login attempt for email: {email}")
+            return jsonify({"error": "Invalid email or password", "status": "error"}), 401
         
         # Don't return the password in the response
         if 'password' in user:
             user = {k: v for k, v in user.items() if k != 'password'}
         
-        return jsonify({"success": True, "user": user})
+        app.logger.info(f"Successful login for email: {email}")
+        return jsonify({"success": True, "user": user, "status": "success"})
     except Exception as e:
-        return jsonify({"error": str(e)}), 400
+        app.logger.error(f"Error in login: {str(e)}")
+        return jsonify({"error": str(e), "status": "error"}), 400
 
 # Subscription endpoint
 @app.route('/subscription', methods=['POST'])
@@ -207,7 +217,8 @@ def update_subscription():
         
         return jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 400
+        app.logger.error(f"Error updating subscription: {str(e)}")
+        return jsonify({"error": str(e), "status": "error"}), 400
 
 # Get all routines - alternate endpoint to match frontend expectations
 @app.route('/routines', methods=['GET'])
@@ -217,54 +228,81 @@ def get_routines_alt():
 # Get all caregiver updates
 @app.route('/api/routines', methods=['GET'])
 def get_routines():
-    user_id = request.args.get('user_id', 'default')
-    routines = data_manager.get_routines(user_id)
-    return jsonify(routines)
+    try:
+        user_id = request.args.get('user_id', 'default')
+        routines = data_manager.get_routines(user_id)
+        return jsonify(routines)
+    except Exception as e:
+        app.logger.error(f"Error getting routines: {str(e)}")
+        return jsonify({"error": str(e), "status": "error"}), 400
 
 # Get all caregiver updates
 @app.route('/api/updates', methods=['GET'])
 def get_updates():
-    user_id = request.args.get('user_id', 'default')
-    updates = data_manager.get_caregiver_updates(user_id)
-    return jsonify(updates)
+    try:
+        user_id = request.args.get('user_id', 'default')
+        updates = data_manager.get_caregiver_updates(user_id)
+        return jsonify(updates)
+    except Exception as e:
+        app.logger.error(f"Error getting updates: {str(e)}")
+        return jsonify({"error": str(e), "status": "error"}), 400
 
 # Add a new routine
 @app.route('/api/routines', methods=['POST'])
 def add_routine():
-    data = request.get_json()
-    user_id = data.get('user_id', 'default')
-    routine = data.get('routine', {})
-    
-    if not routine:
-        return jsonify({"error": "Routine data is required"}), 400
-    
-    result = data_manager.add_routine(routine, user_id)
-    return jsonify(result)
+    try:
+        data = request.get_json()
+        user_id = data.get('user_id', 'default')
+        routine = data.get('routine', {})
+        
+        if not routine:
+            return jsonify({"error": "Routine data is required", "status": "error"}), 400
+        
+        result = data_manager.add_routine(routine, user_id)
+        return jsonify(result)
+    except Exception as e:
+        app.logger.error(f"Error adding routine: {str(e)}")
+        return jsonify({"error": str(e), "status": "error"}), 400
 
 # Add a new caregiver update
 @app.route('/api/updates', methods=['POST'])
 def add_update():
-    data = request.get_json()
-    user_id = data.get('user_id', 'default')
-    update = data.get('update', {})
-    
-    if not update:
-        return jsonify({"error": "Update data is required"}), 400
-    
-    result = data_manager.add_caregiver_update(update, user_id)
-    return jsonify(result)
+    try:
+        data = request.get_json()
+        user_id = data.get('user_id', 'default')
+        update = data.get('update', {})
+        
+        if not update:
+            return jsonify({"error": "Update data is required", "status": "error"}), 400
+        
+        result = data_manager.add_caregiver_update(update, user_id)
+        return jsonify(result)
+    except Exception as e:
+        app.logger.error(f"Error adding update: {str(e)}")
+        return jsonify({"error": str(e), "status": "error"}), 400
 
 # Get AI suggestions for baby routine
 @app.route('/api/suggest', methods=['POST'])
 def get_suggestions():
-    data = request.get_json()
-    prompt = data.get('prompt', '')
-    
-    if not prompt:
-        return jsonify({"error": "Prompt is required"}), 400
-    
-    suggestions = openai_service.get_suggestions(prompt)
-    return jsonify({"suggestions": suggestions})
+    try:
+        data = request.get_json()
+        prompt = data.get('prompt', '')
+        
+        if not prompt:
+            return jsonify({"error": "Prompt is required", "status": "error"}), 400
+        
+        suggestions = openai_service.get_suggestions(prompt)
+        return jsonify({"suggestions": suggestions, "status": "success"})
+    except Exception as e:
+        app.logger.error(f"Error getting suggestions: {str(e)}")
+        return jsonify({"error": str(e), "status": "error"}), 400
+
+# Add a preflight route to handle OPTIONS requests
+@app.route('/', defaults={'path': ''}, methods=['OPTIONS'])
+@app.route('/<path:path>', methods=['OPTIONS'])
+def preflight_handler(path):
+    response = app.make_default_options_response()
+    return response
 
 if __name__ == '__main__':
     # Create data directory if it doesn't exist

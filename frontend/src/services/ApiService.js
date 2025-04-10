@@ -8,12 +8,39 @@ class ApiService {
     this.pollingInterval = parseInt(process.env.REACT_APP_POLLING_INTERVAL || '5000', 10);
     
     console.log('API Service initialized with baseUrl:', this.baseUrl);
+    
+    // Configure axios defaults for CORS
+    this.axiosInstance = axios.create({
+      baseURL: this.baseUrl,
+      withCredentials: true,
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    // Add response interceptor for error handling
+    this.axiosInstance.interceptors.response.use(
+      response => response,
+      error => {
+        console.error('API Error:', error.response ? error.response.data : error.message);
+        // Enhance error with additional information
+        const enhancedError = new Error(
+          error.response ? 
+            `API Error: ${error.response.status} - ${JSON.stringify(error.response.data)}` : 
+            `Network Error: ${error.message}`
+        );
+        enhancedError.originalError = error;
+        enhancedError.status = error.response ? error.response.status : 0;
+        enhancedError.data = error.response ? error.response.data : null;
+        throw enhancedError;
+      }
+    );
   }
 
   // Routine endpoints
   async getRoutines(userId = this.defaultUserId) {
     try {
-      const response = await axios.get(`${this.baseUrl}/routines`, {
+      const response = await this.axiosInstance.get(`/routines`, {
         params: { user_id: userId }
       });
       return response.data;
@@ -25,7 +52,7 @@ class ApiService {
 
   async createRoutine(routineData, userId = this.defaultUserId) {
     try {
-      const response = await axios.post(`${this.baseUrl}/parse-routine`, {
+      const response = await this.axiosInstance.post(`/parse-routine`, {
         text: routineData.text,
         user_id: userId,
         baby_id: routineData.baby_id
@@ -40,7 +67,7 @@ class ApiService {
   // SMS and caregiver updates endpoints
   async getCaregiverUpdates(userId = this.defaultUserId) {
     try {
-      const response = await axios.get(`${this.baseUrl}/sms`, {
+      const response = await this.axiosInstance.get(`/sms`, {
         params: { user_id: userId }
       });
       return response.data;
@@ -52,7 +79,7 @@ class ApiService {
 
   async sendSmsUpdate(message, fromNumber, userId = this.defaultUserId) {
     try {
-      const response = await axios.post(`${this.baseUrl}/sms`, {
+      const response = await this.axiosInstance.post(`/sms`, {
         message,
         from_number: fromNumber,
         user_id: userId
@@ -67,7 +94,7 @@ class ApiService {
   // AI Assistant endpoints
   async sendAssistantMessage(userId = this.defaultUserId, message) {
     try {
-      const response = await axios.post(`${this.baseUrl}/assistant`, {
+      const response = await this.axiosInstance.post(`/assistant`, {
         message,
         user_id: userId
       });
@@ -81,7 +108,7 @@ class ApiService {
   // User and subscription endpoints
   async getUser(userId = this.defaultUserId) {
     try {
-      const response = await axios.get(`${this.baseUrl}/users`, {
+      const response = await this.axiosInstance.get(`/users`, {
         params: { user_id: userId }
       });
       return response.data;
@@ -93,7 +120,7 @@ class ApiService {
 
   async createOrUpdateUser(userData) {
     try {
-      const response = await axios.post(`${this.baseUrl}/users`, userData);
+      const response = await this.axiosInstance.post(`/users`, userData);
       return response.data;
     } catch (error) {
       console.error('Error creating/updating user:', error);
@@ -101,9 +128,22 @@ class ApiService {
     }
   }
 
+  async login(email, password) {
+    try {
+      const response = await this.axiosInstance.post(`/login`, {
+        email,
+        password
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error during login:', error);
+      throw error;
+    }
+  }
+
   async updateSubscription(userId = this.defaultUserId, subscriptionStatus) {
     try {
-      const response = await axios.post(`${this.baseUrl}/subscription`, {
+      const response = await this.axiosInstance.post(`/subscription`, {
         user_id: userId,
         subscription_status: subscriptionStatus
       });
@@ -111,6 +151,17 @@ class ApiService {
     } catch (error) {
       console.error('Error updating subscription:', error);
       throw error;
+    }
+  }
+
+  // Health check to verify API connectivity
+  async checkHealth() {
+    try {
+      const response = await this.axiosInstance.get(`/health`);
+      return response.data.status === 'healthy';
+    } catch (error) {
+      console.error('Health check failed:', error);
+      return false;
     }
   }
 
@@ -149,6 +200,12 @@ class ApiService {
       });
     } catch (error) {
       console.error('Error fetching updates:', error);
+      // Call callback with error information
+      callback({
+        error: error.message,
+        routines: [],
+        updates: []
+      });
     }
   }
 }

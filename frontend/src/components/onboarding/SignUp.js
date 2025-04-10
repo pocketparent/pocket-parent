@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Typography, 
   Button, 
@@ -6,7 +6,9 @@ import {
   Paper, 
   Box,
   TextField,
-  CircularProgress
+  CircularProgress,
+  Snackbar,
+  Alert
 } from '@material-ui/core';
 import { makeStyles } from '@material-ui/core/styles';
 import ApiService from '../../services/ApiService';
@@ -78,6 +80,28 @@ const useStyles = makeStyles((theme) => ({
     color: theme.palette.success.main,
     marginTop: theme.spacing(2),
     textAlign: 'center',
+  },
+  connectionStatus: {
+    position: 'absolute',
+    top: theme.spacing(2),
+    right: theme.spacing(2),
+    padding: theme.spacing(1, 2),
+    borderRadius: 20,
+    fontSize: '0.75rem',
+    display: 'flex',
+    alignItems: 'center',
+  },
+  statusIndicator: {
+    width: 10,
+    height: 10,
+    borderRadius: '50%',
+    marginRight: theme.spacing(1),
+  },
+  connected: {
+    backgroundColor: '#4caf50',
+  },
+  disconnected: {
+    backgroundColor: '#f44336',
   }
 }));
 
@@ -90,6 +114,38 @@ const SignUp = ({ onSignUpComplete }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [apiConnected, setApiConnected] = useState(false);
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [snackbarSeverity, setSnackbarSeverity] = useState('info');
+
+  // Check API connectivity on component mount
+  useEffect(() => {
+    const checkApiConnection = async () => {
+      try {
+        const isConnected = await ApiService.checkHealth();
+        setApiConnected(isConnected);
+        if (!isConnected) {
+          setSnackbarMessage('Unable to connect to the server. Some features may not work properly.');
+          setSnackbarSeverity('warning');
+          setSnackbarOpen(true);
+        }
+      } catch (error) {
+        console.error('API connection check failed:', error);
+        setApiConnected(false);
+        setSnackbarMessage('Unable to connect to the server. Some features may not work properly.');
+        setSnackbarSeverity('warning');
+        setSnackbarOpen(true);
+      }
+    };
+
+    checkApiConnection();
+    
+    // Set up periodic connection checks
+    const intervalId = setInterval(checkApiConnection, 30000); // Check every 30 seconds
+    
+    return () => clearInterval(intervalId);
+  }, []);
 
   const validateForm = () => {
     if (!name || !email || !password || !confirmPassword) {
@@ -120,6 +176,13 @@ const SignUp = ({ onSignUpComplete }) => {
   const handleSignUp = async () => {
     if (!validateForm()) return;
     
+    if (!apiConnected) {
+      setSnackbarMessage('Cannot sign up while disconnected from the server. Please try again later.');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+      return;
+    }
+    
     setLoading(true);
     try {
       // Create user data object
@@ -135,7 +198,14 @@ const SignUp = ({ onSignUpComplete }) => {
       // Call API to create user
       const response = await ApiService.createOrUpdateUser(userData);
       
+      if (response && response.status === 'error') {
+        throw new Error(response.error || 'Failed to create account');
+      }
+      
       setSuccess('Account created successfully!');
+      setSnackbarMessage('Account created successfully! Redirecting...');
+      setSnackbarSeverity('success');
+      setSnackbarOpen(true);
       setLoading(false);
       
       // Wait a moment before proceeding to next step
@@ -144,14 +214,45 @@ const SignUp = ({ onSignUpComplete }) => {
       }, 1500);
       
     } catch (error) {
-      setError('Error creating account. Please try again.');
+      let errorMessage = 'Error creating account. Please try again.';
+      
+      // Extract more specific error message if available
+      if (error.data && error.data.error) {
+        errorMessage = error.data.error;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      setError(errorMessage);
+      setSnackbarMessage(errorMessage);
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
       setLoading(false);
       console.error('Sign up error:', error);
     }
   };
 
+  const handleSnackbarClose = (event, reason) => {
+    if (reason === 'clickaway') {
+      return;
+    }
+    setSnackbarOpen(false);
+  };
+
   return (
     <Container className={classes.container}>
+      <Box 
+        className={classes.connectionStatus}
+        style={{ backgroundColor: apiConnected ? '#e8f5e9' : '#ffebee' }}
+      >
+        <Box 
+          className={`${classes.statusIndicator} ${apiConnected ? classes.connected : classes.disconnected}`}
+        />
+        <Typography variant="caption">
+          {apiConnected ? 'Connected' : 'Disconnected'}
+        </Typography>
+      </Box>
+      
       <Paper className={classes.paper} elevation={0}>
         <Box display="flex" flexDirection="column" alignItems="center">
           <img 
@@ -180,6 +281,8 @@ const SignUp = ({ onSignUpComplete }) => {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Your full name"
+            disabled={loading}
+            error={!!error && !name}
           />
           
           <TextField
@@ -191,6 +294,8 @@ const SignUp = ({ onSignUpComplete }) => {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="your.email@example.com"
+            disabled={loading}
+            error={!!error && !email}
           />
           
           <TextField
@@ -202,6 +307,9 @@ const SignUp = ({ onSignUpComplete }) => {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Create a password"
+            disabled={loading}
+            error={!!error && (!password || password.length < 8)}
+            helperText={password && password.length < 8 ? "Password must be at least 8 characters" : ""}
           />
           
           <TextField
@@ -213,6 +321,8 @@ const SignUp = ({ onSignUpComplete }) => {
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             placeholder="Confirm your password"
+            disabled={loading}
+            error={!!error && (!confirmPassword || password !== confirmPassword)}
           />
           
           {error && (
@@ -233,7 +343,7 @@ const SignUp = ({ onSignUpComplete }) => {
             color="primary"
             fullWidth
             onClick={handleSignUp}
-            disabled={loading}
+            disabled={loading || !apiConnected}
           >
             {loading ? <CircularProgress size={24} /> : 'Sign Up'}
           </Button>
@@ -247,6 +357,17 @@ const SignUp = ({ onSignUpComplete }) => {
           </Typography>
         </Box>
       </Paper>
+      
+      <Snackbar 
+        open={snackbarOpen} 
+        autoHideDuration={6000} 
+        onClose={handleSnackbarClose}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={handleSnackbarClose} severity={snackbarSeverity}>
+          {snackbarMessage}
+        </Alert>
+      </Snackbar>
     </Container>
   );
 };
