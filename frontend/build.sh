@@ -5,13 +5,12 @@ set -e
 node --version
 npm --version
 
-# Clean install
-rm -rf node_modules
-npm cache clean --force
+# Set Node.js memory limit to optimize for resource-constrained environments
+export NODE_OPTIONS="--max-old-space-size=512"
 
-# Install dependencies with more verbose output
+# Install dependencies without verbose logging and without cleaning
 echo "Installing dependencies..."
-npm install --loglevel verbose
+npm ci --prefer-offline --no-audit --progress=false
 
 # Run build with CI=false to ignore warnings
 echo "Building production bundle..."
