@@ -18,3 +18,7 @@ errorlog = "-"
 
 # Ensure proper handling of SIGTERM
 graceful_timeout = 10
+
+# Ensure eventlet is properly initialized
+import eventlet
+eventlet.monkey_patch()

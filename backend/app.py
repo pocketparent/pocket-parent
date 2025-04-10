@@ -1,3 +1,7 @@
+# Initialize eventlet and monkey patch before any other imports
+import eventlet
+eventlet.monkey_patch()
+
 import os
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -316,4 +320,4 @@ if __name__ == '__main__':
     
     # Run the Flask app with Socket.IO
     port = int(os.getenv('PORT', 8000))
-    socket_service.run(host='0.0.0.0', port=port, debug=(os.getenv('DEBUG', 'False').lower() == 'true'))
+    socket_service.socketio.run(app, host='0.0.0.0', port=port, debug=(os.getenv('DEBUG', 'False').lower() == 'true'))
