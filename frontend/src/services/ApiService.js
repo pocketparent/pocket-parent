@@ -1,213 +1,196 @@
 import axios from 'axios';
 
 class ApiService {
-  constructor() {
-    // Support both environment variable names for compatibility
-    this.baseUrl = process.env.REACT_APP_API_URL || process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
-    this.defaultUserId = process.env.REACT_APP_DEFAULT_USER_ID || 'test_user_123';
-    this.pollingInterval = parseInt(process.env.REACT_APP_POLLING_INTERVAL || '5000', 10);
-    
-    console.log('API Service initialized with baseUrl:', this.baseUrl);
-    
-    // Configure axios defaults for CORS
-    this.axiosInstance = axios.create({
-      baseURL: this.baseUrl,
-      withCredentials: true,
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    });
-    
-    // Add response interceptor for error handling
-    this.axiosInstance.interceptors.response.use(
-      response => response,
-      error => {
-        console.error('API Error:', error.response ? error.response.data : error.message);
-        // Enhance error with additional information
-        const enhancedError = new Error(
-          error.response ? 
-            `API Error: ${error.response.status} - ${JSON.stringify(error.response.data)}` : 
-            `Network Error: ${error.message}`
-        );
-        enhancedError.originalError = error;
-        enhancedError.status = error.response ? error.response.status : 0;
-        enhancedError.data = error.response ? error.response.data : null;
-        throw enhancedError;
-      }
-    );
-  }
+  static API_URL = process.env.REACT_APP_API_URL || 'https://hatchling-backend.onrender.com';
+  static DEFAULT_USER_ID = process.env.REACT_APP_DEFAULT_USER_ID || 'default';
 
-  // Routine endpoints
-  async getRoutines(userId = this.defaultUserId) {
+  // Health check
+  static async checkHealth() {
     try {
-      const response = await this.axiosInstance.get(`/routines`, {
-        params: { user_id: userId }
-      });
-      return response.data;
-    } catch (error) {
-      console.error('Error fetching routines:', error);
-      throw error;
-    }
-  }
-
-  async createRoutine(routineData, userId = this.defaultUserId) {
-    try {
-      const response = await this.axiosInstance.post(`/parse-routine`, {
-        text: routineData.text,
-        user_id: userId,
-        baby_id: routineData.baby_id
-      });
-      return response.data;
-    } catch (error) {
-      console.error('Error creating routine:', error);
-      throw error;
-    }
-  }
-
-  // SMS and caregiver updates endpoints
-  async getCaregiverUpdates(userId = this.defaultUserId) {
-    try {
-      const response = await this.axiosInstance.get(`/sms`, {
-        params: { user_id: userId }
-      });
-      return response.data;
-    } catch (error) {
-      console.error('Error fetching caregiver updates:', error);
-      throw error;
-    }
-  }
-
-  async sendSmsUpdate(message, fromNumber, userId = this.defaultUserId) {
-    try {
-      const response = await this.axiosInstance.post(`/sms`, {
-        message,
-        from_number: fromNumber,
-        user_id: userId
-      });
-      return response.data;
-    } catch (error) {
-      console.error('Error sending SMS update:', error);
-      throw error;
-    }
-  }
-
-  // AI Assistant endpoints
-  async sendAssistantMessage(userId = this.defaultUserId, message) {
-    try {
-      const response = await this.axiosInstance.post(`/assistant`, {
-        message,
-        user_id: userId
-      });
-      return response.data;
-    } catch (error) {
-      console.error('Error sending assistant message:', error);
-      throw error;
-    }
-  }
-
-  // User and subscription endpoints
-  async getUser(userId = this.defaultUserId) {
-    try {
-      const response = await this.axiosInstance.get(`/users`, {
-        params: { user_id: userId }
-      });
-      return response.data;
-    } catch (error) {
-      console.error('Error fetching user data:', error);
-      throw error;
-    }
-  }
-
-  async createOrUpdateUser(userData) {
-    try {
-      const response = await this.axiosInstance.post(`/users`, userData);
-      return response.data;
-    } catch (error) {
-      console.error('Error creating/updating user:', error);
-      throw error;
-    }
-  }
-
-  async login(email, password) {
-    try {
-      const response = await this.axiosInstance.post(`/login`, {
-        email,
-        password
-      });
-      return response.data;
-    } catch (error) {
-      console.error('Error during login:', error);
-      throw error;
-    }
-  }
-
-  async updateSubscription(userId = this.defaultUserId, subscriptionStatus) {
-    try {
-      const response = await this.axiosInstance.post(`/subscription`, {
-        user_id: userId,
-        subscription_status: subscriptionStatus
-      });
-      return response.data;
-    } catch (error) {
-      console.error('Error updating subscription:', error);
-      throw error;
-    }
-  }
-
-  // Health check to verify API connectivity
-  async checkHealth() {
-    try {
-      const response = await this.axiosInstance.get(`/health`);
-      return response.data.status === 'healthy';
+      const response = await axios.get(`${this.API_URL}/health`);
+      return response.data && response.data.status === 'healthy';
     } catch (error) {
       console.error('Health check failed:', error);
       return false;
     }
   }
 
-  // Polling mechanism for real-time updates
-  startPolling(callback, userId = this.defaultUserId, interval = this.pollingInterval) {
-    // Initial fetch
-    this.fetchUpdates(callback, userId);
-    
-    // Set up interval for polling
-    const intervalId = setInterval(() => {
-      this.fetchUpdates(callback, userId);
-    }, interval);
-    
-    // Return interval ID so it can be cleared later
-    return intervalId;
-  }
-
-  stopPolling(intervalId) {
-    if (intervalId) {
-      clearInterval(intervalId);
+  // User authentication
+  static async login(email, password) {
+    try {
+      const response = await axios.post(`${this.API_URL}/login`, { email, password });
+      return response.data;
+    } catch (error) {
+      console.error('Login error:', error);
+      throw error.response ? error.response.data : error;
     }
   }
 
-  async fetchUpdates(callback, userId) {
+  // User management
+  static async createOrUpdateUser(userData) {
     try {
-      // Fetch both routines and caregiver updates
-      const [routines, updates] = await Promise.all([
-        this.getRoutines(userId),
-        this.getCaregiverUpdates(userId)
-      ]);
-      
-      // Call the callback with the fetched data
-      callback({
-        routines,
-        updates
-      });
+      const response = await axios.post(`${this.API_URL}/users`, userData);
+      return response.data;
     } catch (error) {
-      console.error('Error fetching updates:', error);
-      // Call callback with error information
-      callback({
-        error: error.message,
-        routines: [],
-        updates: []
+      console.error('Create/update user error:', error);
+      throw error.response ? error.response.data : error;
+    }
+  }
+
+  static async getUser(userId = this.DEFAULT_USER_ID) {
+    try {
+      const response = await axios.get(`${this.API_URL}/users?user_id=${userId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Get user error:', error);
+      throw error.response ? error.response.data : error;
+    }
+  }
+
+  static async getAllUsers() {
+    try {
+      const response = await axios.get(`${this.API_URL}/admin/users`);
+      return response.data;
+    } catch (error) {
+      console.error('Get all users error:', error);
+      throw error.response ? error.response.data : error;
+    }
+  }
+
+  // Routine management
+  static async getRoutines(userId = this.DEFAULT_USER_ID) {
+    try {
+      const response = await axios.get(`${this.API_URL}/routines?user_id=${userId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Get routines error:', error);
+      throw error.response ? error.response.data : error;
+    }
+  }
+
+  static async createRoutine(routineData, userId = this.DEFAULT_USER_ID) {
+    try {
+      const response = await axios.post(`${this.API_URL}/api/routines`, {
+        routine: routineData,
+        user_id: userId
       });
+      return response.data;
+    } catch (error) {
+      console.error('Create routine error:', error);
+      throw error.response ? error.response.data : error;
+    }
+  }
+
+  // Caregiver updates
+  static async getCaregiverUpdates(userId = this.DEFAULT_USER_ID) {
+    try {
+      const response = await axios.get(`${this.API_URL}/api/updates?user_id=${userId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Get caregiver updates error:', error);
+      throw error.response ? error.response.data : error;
+    }
+  }
+
+  static async addCaregiverUpdate(updateData, userId = this.DEFAULT_USER_ID) {
+    try {
+      const response = await axios.post(`${this.API_URL}/api/updates`, {
+        update: updateData,
+        user_id: userId
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Add caregiver update error:', error);
+      throw error.response ? error.response.data : error;
+    }
+  }
+
+  // SMS functionality
+  static async sendSms(message, fromNumber, userId = this.DEFAULT_USER_ID) {
+    try {
+      const response = await axios.post(`${this.API_URL}/sms`, {
+        message,
+        from_number: fromNumber,
+        user_id: userId
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Send SMS error:', error);
+      throw error.response ? error.response.data : error;
+    }
+  }
+
+  static async getSmsMessages(userId = this.DEFAULT_USER_ID) {
+    try {
+      const response = await axios.get(`${this.API_URL}/sms?user_id=${userId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Get SMS messages error:', error);
+      throw error.response ? error.response.data : error;
+    }
+  }
+
+  static async getAllSmsActivity() {
+    try {
+      const response = await axios.get(`${this.API_URL}/admin/sms-activity`);
+      return response.data;
+    } catch (error) {
+      console.error('Get all SMS activity error:', error);
+      throw error.response ? error.response.data : error;
+    }
+  }
+
+  // Assistant functionality
+  static async getAssistantResponse(message, userId = this.DEFAULT_USER_ID) {
+    try {
+      const response = await axios.post(`${this.API_URL}/assistant`, {
+        message,
+        user_id: userId
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Get assistant response error:', error);
+      throw error.response ? error.response.data : error;
+    }
+  }
+
+  // Subscription management
+  static async updateSubscription(subscriptionData, userId = this.DEFAULT_USER_ID) {
+    try {
+      const response = await axios.post(`${this.API_URL}/subscription`, {
+        ...subscriptionData,
+        user_id: userId
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Update subscription error:', error);
+      throw error.response ? error.response.data : error;
+    }
+  }
+
+  // Impersonation functionality
+  static async impersonateUser(userId) {
+    try {
+      // This would typically be a server endpoint, but for now we'll implement it client-side
+      // Import the ImpersonationService dynamically to avoid circular dependencies
+      const ImpersonationService = (await import('./ImpersonationService')).default;
+      return await ImpersonationService.impersonateUser(userId);
+    } catch (error) {
+      console.error('Impersonate user error:', error);
+      throw error;
+    }
+  }
+
+  static async endImpersonation() {
+    try {
+      // This would typically be a server endpoint, but for now we'll implement it client-side
+      const ImpersonationService = (await import('./ImpersonationService')).default;
+      return await ImpersonationService.endImpersonation();
+    } catch (error) {
+      console.error('End impersonation error:', error);
+      throw error;
     }
   }
 }
 
-export default new ApiService();
+export default ApiService;
