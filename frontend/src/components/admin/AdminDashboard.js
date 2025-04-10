@@ -141,34 +141,6 @@ const useStyles = makeStyles((theme) => ({
   },
 }));
 
-// Mock data for demonstration
-const MOCK_USERS = [
-  { id: 'user_001', name: 'Sarah Johnson', email: 'sarah@example.com', subscription_status: 'active', subscription_plan: 'premium', children: 2, last_active: '2025-04-09T10:23:45Z' },
-  { id: 'user_002', name: 'Michael Chen', email: 'michael@example.com', subscription_status: 'trial', subscription_plan: 'standard', children: 1, last_active: '2025-04-08T15:12:30Z' },
-  { id: 'user_003', name: 'Jessica Williams', email: 'jessica@example.com', subscription_status: 'active', subscription_plan: 'basic', children: 1, last_active: '2025-04-09T08:45:12Z' },
-  { id: 'user_004', name: 'David Rodriguez', email: 'david@example.com', subscription_status: 'inactive', subscription_plan: 'standard', children: 3, last_active: '2025-04-05T11:30:22Z' },
-  { id: 'user_005', name: 'Emily Taylor', email: 'emily@example.com', subscription_status: 'trial', subscription_plan: 'premium', children: 2, last_active: '2025-04-09T09:15:40Z' },
-];
-
-const MOCK_SMS_ACTIVITY = [
-  { id: 'sms_001', user_id: 'user_001', from_number: '+15551234567', message: 'Baby napped from 2pm to 3:30pm', timestamp: '2025-04-09T15:30:00Z' },
-  { id: 'sms_002', user_id: 'user_002', from_number: '+15559876543', message: 'Feeding at 12:15pm, 6oz formula', timestamp: '2025-04-09T12:20:00Z' },
-  { id: 'sms_003', user_id: 'user_001', from_number: '+15551234567', message: 'Diaper change at 4pm, wet only', timestamp: '2025-04-09T16:05:00Z' },
-  { id: 'sms_004', user_id: 'user_003', from_number: '+15554567890', message: 'Baby woke up at 7:30am', timestamp: '2025-04-09T07:35:00Z' },
-  { id: 'sms_005', user_id: 'user_005', from_number: '+15552223333', message: 'Started bedtime routine at 7pm', timestamp: '2025-04-08T19:05:00Z' },
-];
-
-const MOCK_METRICS = {
-  totalUsers: 127,
-  activeUsers: 98,
-  trialUsers: 42,
-  totalChildren: 183,
-  dailyLogs: 342,
-  smsActivity: 215,
-  churnRate: '3.2%',
-  conversionRate: '68%',
-};
-
 function TabPanel(props) {
   const { children, value, index, ...other } = props;
 
@@ -192,23 +164,120 @@ function TabPanel(props) {
 const AdminDashboard = ({ adminData, onLogout }) => {
   const classes = useStyles();
   const [tabValue, setTabValue] = useState(0);
-  const [users, setUsers] = useState(MOCK_USERS);
-  const [smsActivity, setSmsActivity] = useState(MOCK_SMS_ACTIVITY);
-  const [metrics, setMetrics] = useState(MOCK_METRICS);
+  const [users, setUsers] = useState([]);
+  const [smsActivity, setSmsActivity] = useState([]);
+  const [metrics, setMetrics] = useState({
+    totalUsers: 0,
+    activeUsers: 0,
+    trialUsers: 0,
+    totalChildren: 0,
+    dailyLogs: 0,
+    smsActivity: 0,
+    churnRate: '0%',
+    conversionRate: '0%',
+  });
   const [searchTerm, setSearchTerm] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'info' });
   const [selectedUser, setSelectedUser] = useState(null);
+  const [impersonatedUser, setImpersonatedUser] = useState(null);
 
   // Fetch data on component mount
   useEffect(() => {
-    // In a real app, this would fetch data from the API
-    // For demo purposes, we're using mock data
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-    }, 1000);
+    fetchDashboardData();
   }, []);
+
+  const fetchDashboardData = async () => {
+    setLoading(true);
+    try {
+      // Fetch users data
+      const usersResponse = await ApiService.getAllUsers();
+      if (usersResponse && Array.isArray(usersResponse)) {
+        setUsers(usersResponse);
+        
+        // Calculate metrics from user data
+        const activeUsers = usersResponse.filter(user => user.subscription_status === 'active');
+        const trialUsers = usersResponse.filter(user => user.subscription_status === 'trial');
+        
+        // Count total children
+        let totalChildren = 0;
+        usersResponse.forEach(user => {
+          if (user.children && Array.isArray(user.children)) {
+            totalChildren += user.children.length;
+          }
+        });
+        
+        // Calculate conversion rate
+        const conversionRate = usersResponse.length > 0 
+          ? Math.round((activeUsers.length / usersResponse.length) * 100) + '%'
+          : '0%';
+        
+        // Fetch SMS activity
+        const smsResponse = await ApiService.getAllSmsActivity();
+        if (smsResponse && Array.isArray(smsResponse)) {
+          setSmsActivity(smsResponse);
+          
+          // Update metrics with real data
+          setMetrics({
+            totalUsers: usersResponse.length,
+            activeUsers: activeUsers.length,
+            trialUsers: trialUsers.length,
+            totalChildren: totalChildren,
+            dailyLogs: smsResponse.length,
+            smsActivity: smsResponse.length,
+            churnRate: '3.2%', // This would need a more complex calculation in a real app
+            conversionRate: conversionRate,
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+      setNotification({
+        open: true,
+        message: 'Error loading dashboard data. Using sample data instead.',
+        severity: 'error'
+      });
+      
+      // Fall back to sample data if API fails
+      loadSampleData();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadSampleData = () => {
+    // Sample data for demonstration when API fails
+    const MOCK_USERS = [
+      { id: 'user_001', name: 'Sarah Johnson', email: 'sarah@example.com', subscription_status: 'active', subscription_plan: 'premium', children: 2, last_active: '2025-04-09T10:23:45Z' },
+      { id: 'user_002', name: 'Michael Chen', email: 'michael@example.com', subscription_status: 'trial', subscription_plan: 'standard', children: 1, last_active: '2025-04-08T15:12:30Z' },
+      { id: 'user_003', name: 'Jessica Williams', email: 'jessica@example.com', subscription_status: 'active', subscription_plan: 'basic', children: 1, last_active: '2025-04-09T08:45:12Z' },
+      { id: 'user_004', name: 'David Rodriguez', email: 'david@example.com', subscription_status: 'inactive', subscription_plan: 'standard', children: 3, last_active: '2025-04-05T11:30:22Z' },
+      { id: 'user_005', name: 'Emily Taylor', email: 'emily@example.com', subscription_status: 'trial', subscription_plan: 'premium', children: 2, last_active: '2025-04-09T09:15:40Z' },
+    ];
+
+    const MOCK_SMS_ACTIVITY = [
+      { id: 'sms_001', user_id: 'user_001', from_number: '+15551234567', message: 'Baby napped from 2pm to 3:30pm', timestamp: '2025-04-09T15:30:00Z' },
+      { id: 'sms_002', user_id: 'user_002', from_number: '+15559876543', message: 'Feeding at 12:15pm, 6oz formula', timestamp: '2025-04-09T12:20:00Z' },
+      { id: 'sms_003', user_id: 'user_001', from_number: '+15551234567', message: 'Diaper change at 4pm, wet only', timestamp: '2025-04-09T16:05:00Z' },
+      { id: 'sms_004', user_id: 'user_003', from_number: '+15554567890', message: 'Baby woke up at 7:30am', timestamp: '2025-04-09T07:35:00Z' },
+      { id: 'sms_005', user_id: 'user_005', from_number: '+15552223333', message: 'Started bedtime routine at 7pm', timestamp: '2025-04-08T19:05:00Z' },
+    ];
+
+    const MOCK_METRICS = {
+      totalUsers: 127,
+      activeUsers: 98,
+      trialUsers: 42,
+      totalChildren: 183,
+      dailyLogs: 342,
+      smsActivity: 215,
+      churnRate: '3.2%',
+      conversionRate: '68%',
+    };
+
+    setUsers(MOCK_USERS);
+    setSmsActivity(MOCK_SMS_ACTIVITY);
+    setMetrics(MOCK_METRICS);
+  };
 
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
@@ -222,13 +291,46 @@ const AdminDashboard = ({ adminData, onLogout }) => {
     setNotification({ ...notification, open: false });
   };
 
-  const handleImpersonateUser = (user) => {
+  const handleImpersonateUser = async (user) => {
+    try {
+      setLoading(true);
+      
+      // In a real implementation, this would call an API endpoint to create an impersonation session
+      const impersonationResponse = await ApiService.impersonateUser(user.id);
+      
+      if (impersonationResponse && impersonationResponse.success) {
+        setImpersonatedUser(user);
+        setNotification({
+          open: true,
+          message: `Now impersonating ${user.name}. You can view the application as this user.`,
+          severity: 'info'
+        });
+        
+        // Switch to the impersonation tab
+        setTabValue(4);
+      } else {
+        throw new Error('Failed to impersonate user');
+      }
+    } catch (error) {
+      console.error('Error impersonating user:', error);
+      setNotification({
+        open: true,
+        message: `Error impersonating user: ${error.message || 'Unknown error'}`,
+        severity: 'error'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEndImpersonation = () => {
+    setImpersonatedUser(null);
     setNotification({
       open: true,
-      message: `Now impersonating ${user.name}`,
+      message: 'Impersonation session ended',
       severity: 'info'
     });
-    // In a real app, this would set up an impersonation session
+    setTabValue(0); // Return to dashboard
   };
 
   const handleResetAccount = (user) => {
@@ -485,20 +587,10 @@ const AdminDashboard = ({ adminData, onLogout }) => {
           </TableHead>
           <TableBody>
             {smsActivity.map((sms) => {
-              const user = users.find(u => u.id === sms.user_id) || { name: 'Unknown User', email: '' };
+              const user = users.find(u => u.id === sms.user_id) || { name: 'Unknown User' };
               return (
                 <TableRow key={sms.id}>
-                  <TableCell>
-                    <div className={classes.userInfo}>
-                      <div className={classes.userAvatar}>
-                        {user.name.charAt(0)}
-                      </div>
-                      <div>
-                        <Typography variant="body2">{user.name}</Typography>
-                        <Typography variant="caption" color="textSecondary">{user.email}</Typography>
-                      </div>
-                    </div>
-                  </TableCell>
+                  <TableCell>{user.name}</TableCell>
                   <TableCell>{sms.from_number}</TableCell>
                   <TableCell>{sms.message}</TableCell>
                   <TableCell>{new Date(sms.timestamp).toLocaleString()}</TableCell>
@@ -511,195 +603,142 @@ const AdminDashboard = ({ adminData, onLogout }) => {
     </Paper>
   );
 
-  const renderMetrics = () => (
-    <Grid container spacing={3}>
-      <Grid item xs={12} md={6}>
-        <Paper className={classes.paper}>
-          <Typography variant="h6" gutterBottom>
-            User Metrics
-          </Typography>
-          <Grid container spacing={2}>
-            <Grid item xs={6}>
-              <Typography variant="body2" color="textSecondary">Total Users</Typography>
-              <Typography variant="h5">{metrics.totalUsers}</Typography>
-            </Grid>
-            <Grid item xs={6}>
-              <Typography variant="body2" color="textSecondary">Active Users</Typography>
-              <Typography variant="h5">{metrics.activeUsers}</Typography>
-            </Grid>
-            <Grid item xs={6}>
-              <Typography variant="body2" color="textSecondary">Trial Users</Typography>
-              <Typography variant="h5">{metrics.trialUsers}</Typography>
-            </Grid>
-            <Grid item xs={6}>
-              <Typography variant="body2" color="textSecondary">Total Children</Typography>
-              <Typography variant="h5">{metrics.totalChildren}</Typography>
-            </Grid>
-          </Grid>
-        </Paper>
-      </Grid>
-      <Grid item xs={12} md={6}>
-        <Paper className={classes.paper}>
-          <Typography variant="h6" gutterBottom>
-            Activity Metrics
-          </Typography>
-          <Grid container spacing={2}>
-            <Grid item xs={6}>
-              <Typography variant="body2" color="textSecondary">Daily Logs</Typography>
-              <Typography variant="h5">{metrics.dailyLogs}</Typography>
-            </Grid>
-            <Grid item xs={6}>
-              <Typography variant="body2" color="textSecondary">SMS Activity</Typography>
-              <Typography variant="h5">{metrics.smsActivity}</Typography>
-            </Grid>
-            <Grid item xs={6}>
-              <Typography variant="body2" color="textSecondary">Churn Rate</Typography>
-              <Typography variant="h5">{metrics.churnRate}</Typography>
-            </Grid>
-            <Grid item xs={6}>
-              <Typography variant="body2" color="textSecondary">Conversion Rate</Typography>
-              <Typography variant="h5">{metrics.conversionRate}</Typography>
-            </Grid>
-          </Grid>
-        </Paper>
-      </Grid>
-      <Grid item xs={12}>
-        <Paper className={classes.paper}>
-          <Typography variant="h6" gutterBottom>
-            Subscription Distribution
-          </Typography>
-          <Box height={300} display="flex" alignItems="center" justifyContent="center">
-            <Typography variant="body1" color="textSecondary">
-              Charts and detailed analytics would be displayed here
-            </Typography>
-          </Box>
-        </Paper>
-      </Grid>
-    </Grid>
+  const renderSettings = () => (
+    <Paper className={classes.paper}>
+      <Typography variant="h6" gutterBottom>
+        Admin Settings
+      </Typography>
+      <Box mt={3}>
+        <Typography variant="subtitle1" gutterBottom>
+          Account Information
+        </Typography>
+        <Typography variant="body2">
+          Email: {adminData?.email || 'admin@hatchling.com'}
+        </Typography>
+        <Typography variant="body2">
+          Role: Administrator
+        </Typography>
+      </Box>
+      <Divider className={classes.divider} />
+      <Box mt={3}>
+        <Button
+          variant="contained"
+          color="secondary"
+          startIcon={<ExitToAppIcon />}
+          onClick={onLogout}
+        >
+          Logout
+        </Button>
+      </Box>
+    </Paper>
   );
 
   const renderUserDashboard = () => {
-    if (!selectedUser) {
+    const user = impersonatedUser || selectedUser;
+    
+    if (!user) {
       return (
         <Paper className={classes.paper}>
-          <Box display="flex" justifyContent="center" alignItems="center" height={300}>
-            <Typography variant="body1" color="textSecondary">
-              Select a user to view their dashboard
-            </Typography>
-          </Box>
+          <Typography variant="h6" gutterBottom>
+            No user selected
+          </Typography>
+          <Typography variant="body1">
+            Please select a user to view their dashboard.
+          </Typography>
         </Paper>
       );
     }
-
+    
     return (
       <>
-        <Paper className={classes.paper}>
-          <Box display="flex" alignItems="center" mb={3}>
-            <div className={classes.userAvatar} style={{ width: 48, height: 48, fontSize: '1.5rem' }}>
-              {selectedUser.name.charAt(0)}
-            </div>
-            <Box ml={2}>
-              <Typography variant="h5">{selectedUser.name}</Typography>
-              <Typography variant="body2" color="textSecondary">{selectedUser.email}</Typography>
-            </Box>
-            <Box ml="auto">
-              <Button
-                variant="contained"
-                color="primary"
-                startIcon={<SupervisorAccountIcon />}
-                onClick={() => handleImpersonateUser(selectedUser)}
-              >
-                Impersonate
-              </Button>
-            </Box>
-          </Box>
-          
-          <Divider className={classes.divider} />
-          
-          <Typography variant="h6" gutterBottom>
-            Account Details
-          </Typography>
-          <Grid container spacing={2}>
-            <Grid item xs={12} md={6}>
-              <Typography variant="body2" color="textSecondary">Subscription Status</Typography>
-              <Typography variant="body1">
-                {selectedUser.subscription_status.charAt(0).toUpperCase() + selectedUser.subscription_status.slice(1)}
-              </Typography>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <Typography variant="body2" color="textSecondary">Subscription Plan</Typography>
-              <Typography variant="body1">{selectedUser.subscription_plan.charAt(0).toUpperCase() + selectedUser.subscription_plan.slice(1)}</Typography>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <Typography variant="body2" color="textSecondary">Number of Children</Typography>
-              <Typography variant="body1">{selectedUser.children}</Typography>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <Typography variant="body2" color="textSecondary">Last Active</Typography>
-              <Typography variant="body1">{new Date(selectedUser.last_active).toLocaleString()}</Typography>
-            </Grid>
-          </Grid>
-          
-          <Divider className={classes.divider} />
-          
-          <Typography variant="h6" gutterBottom>
-            Recent Activity
-          </Typography>
-          <TableContainer className={classes.tableContainer}>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Type</TableCell>
-                  <TableCell>Message</TableCell>
-                  <TableCell>Timestamp</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {smsActivity
-                  .filter(sms => sms.user_id === selectedUser.id)
-                  .map((sms) => (
-                    <TableRow key={sms.id}>
-                      <TableCell>SMS</TableCell>
-                      <TableCell>{sms.message}</TableCell>
-                      <TableCell>{new Date(sms.timestamp).toLocaleString()}</TableCell>
-                    </TableRow>
-                  ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-          
-          <Divider className={classes.divider} />
-          
-          <Typography variant="h6" gutterBottom>
-            Admin Actions
-          </Typography>
-          <Box display="flex" mt={2}>
+        {impersonatedUser && (
+          <Box mb={3} display="flex" justifyContent="space-between" alignItems="center">
+            <Typography variant="h6" style={{ color: '#f44336' }}>
+              Impersonating: {user.name}
+            </Typography>
             <Button
-              variant="outlined"
-              color="primary"
-              className={classes.actionButton}
-              onClick={() => handleResetAccount(selectedUser)}
-            >
-              Reset Account
-            </Button>
-            <Button
-              variant="outlined"
+              variant="contained"
               color="secondary"
-              className={classes.actionButton}
+              onClick={handleEndImpersonation}
             >
-              Edit Subscription
+              End Impersonation
             </Button>
-            <Button
-              variant="outlined"
-              className={classes.actionButton}
-            >
-              Send Message
-            </Button>
+          </Box>
+        )}
+        
+        <Paper className={classes.paper}>
+          <Typography variant="h6" gutterBottom>
+            User Profile
+          </Typography>
+          <Box mt={3}>
+            <Grid container spacing={3}>
+              <Grid item xs={12} md={6}>
+                <Typography variant="subtitle1" gutterBottom>
+                  Account Information
+                </Typography>
+                <Typography variant="body2">
+                  Name: {user.name}
+                </Typography>
+                <Typography variant="body2">
+                  Email: {user.email}
+                </Typography>
+                <Typography variant="body2">
+                  Subscription: {user.subscription_status.charAt(0).toUpperCase() + user.subscription_status.slice(1)} ({user.subscription_plan})
+                </Typography>
+                <Typography variant="body2">
+                  Last Active: {new Date(user.last_active).toLocaleString()}
+                </Typography>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <Typography variant="subtitle1" gutterBottom>
+                  Children
+                </Typography>
+                {Array.isArray(user.children) && user.children.length > 0 ? (
+                  user.children.map((child, index) => (
+                    <Typography key={index} variant="body2">
+                      Child {index + 1}: {child.name || 'Unnamed'} 
+                      {child.birth_date ? ` (${new Date(child.birth_date).toLocaleDateString()})` : ''}
+                    </Typography>
+                  ))
+                ) : (
+                  <Typography variant="body2">
+                    No children registered
+                  </Typography>
+                )}
+              </Grid>
+            </Grid>
           </Box>
         </Paper>
+        
+        {impersonatedUser && (
+          <Box mt={3}>
+            <Paper className={classes.paper}>
+              <Typography variant="h6" gutterBottom>
+                User Dashboard View
+              </Typography>
+              <Typography variant="body1" paragraph>
+                This is a simulation of what the user would see in their dashboard.
+              </Typography>
+              
+              <iframe 
+                src={`/dashboard?user_id=${user.id}&impersonation=true`}
+                style={{ width: '100%', height: '600px', border: '1px solid #ddd', borderRadius: '8px' }}
+                title="User Dashboard"
+              />
+            </Paper>
+          </Box>
+        )}
       </>
     );
   };
+
+  if (loading) {
+    return (
+      <div className={classes.loadingContainer}>
+        <CircularProgress />
+      </div>
+    );
+  }
 
   return (
     <div className={classes.root}>
@@ -719,13 +758,7 @@ const AdminDashboard = ({ adminData, onLogout }) => {
               Hatchling Admin
             </Typography>
           </Box>
-          <Box display="flex" alignItems="center">
-            <Box mr={2} display="flex" alignItems="center">
-              <PersonIcon style={{ marginRight: 8 }} />
-              <Typography variant="body2">
-                {adminData.name}
-              </Typography>
-            </Box>
+          <Box>
             <IconButton color="inherit" onClick={onLogout} title="Logout">
               <ExitToAppIcon />
             </IconButton>
@@ -733,7 +766,7 @@ const AdminDashboard = ({ adminData, onLogout }) => {
         </Toolbar>
       </AppBar>
       
-      <Container className={classes.container} maxWidth="lg">
+      <Container className={classes.container}>
         <Tabs
           value={tabValue}
           onChange={handleTabChange}
@@ -746,39 +779,38 @@ const AdminDashboard = ({ adminData, onLogout }) => {
           <Tab icon={<DashboardIcon />} label="Dashboard" className={classes.tab} />
           <Tab icon={<PeopleIcon />} label="Users" className={classes.tab} />
           <Tab icon={<MessageIcon />} label="SMS Activity" className={classes.tab} />
-          <Tab icon={<TrendingUpIcon />} label="Metrics" className={classes.tab} />
-          <Tab icon={<SupervisorAccountIcon />} label="User Dashboard" className={classes.tab} />
+          <Tab icon={<SettingsIcon />} label="Settings" className={classes.tab} />
+          {(selectedUser || impersonatedUser) && (
+            <Tab icon={<PersonIcon />} label="User Dashboard" className={classes.tab} />
+          )}
         </Tabs>
         
-        {loading ? (
-          <div className={classes.loadingContainer}>
-            <CircularProgress />
-          </div>
-        ) : (
-          <>
-            <TabPanel value={tabValue} index={0} className={classes.tabPanel}>
-              {renderDashboard()}
-            </TabPanel>
-            <TabPanel value={tabValue} index={1} className={classes.tabPanel}>
-              {renderUsers()}
-            </TabPanel>
-            <TabPanel value={tabValue} index={2} className={classes.tabPanel}>
-              {renderSmsActivity()}
-            </TabPanel>
-            <TabPanel value={tabValue} index={3} className={classes.tabPanel}>
-              {renderMetrics()}
-            </TabPanel>
-            <TabPanel value={tabValue} index={4} className={classes.tabPanel}>
-              {renderUserDashboard()}
-            </TabPanel>
-          </>
-        )}
+        <TabPanel value={tabValue} index={0} className={classes.tabPanel}>
+          {renderDashboard()}
+        </TabPanel>
+        
+        <TabPanel value={tabValue} index={1} className={classes.tabPanel}>
+          {renderUsers()}
+        </TabPanel>
+        
+        <TabPanel value={tabValue} index={2} className={classes.tabPanel}>
+          {renderSmsActivity()}
+        </TabPanel>
+        
+        <TabPanel value={tabValue} index={3} className={classes.tabPanel}>
+          {renderSettings()}
+        </TabPanel>
+        
+        <TabPanel value={tabValue} index={4} className={classes.tabPanel}>
+          {renderUserDashboard()}
+        </TabPanel>
       </Container>
       
-      <Snackbar 
-        open={notification.open} 
-        autoHideDuration={6000} 
+      <Snackbar
+        open={notification.open}
+        autoHideDuration={6000}
         onClose={handleCloseNotification}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
         <Alert onClose={handleCloseNotification} severity={notification.severity}>
           {notification.message}
