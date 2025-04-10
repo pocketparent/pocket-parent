@@ -26,7 +26,7 @@ import {
   DialogActions,
   TextField
 } from '@material-ui/core';
-import { Alert } from '@material-ui/lab';
+import Alert from '@material-ui/lab/Alert';
 import { 
   Today as TodayIcon,
   ArrowBack as ArrowBackIcon,

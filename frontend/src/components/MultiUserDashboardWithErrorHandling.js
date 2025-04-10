@@ -28,7 +28,7 @@ import {
   Fab,
   CircularProgress
 } from '@material-ui/core';
-import { Alert } from '@material-ui/lab';
+import Alert from '@material-ui/lab/Alert';
 import { AssistantWidget } from './assistant';
 import { 
   Today as TodayIcon,
