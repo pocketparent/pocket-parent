@@ -118,6 +118,9 @@ const useStyles = makeStyles((theme) => ({
     fontStyle: 'italic',
     color: '#666',
   },
+  form: {
+    width: '100%',
+  }
 }));
 
 const SubscriptionPlans = ({ onSelectPlan, onBack }) => {
@@ -170,7 +173,10 @@ const SubscriptionPlans = ({ onSelectPlan, onBack }) => {
     setSelectedPlan(planId);
   };
 
-  const handleContinue = () => {
+  const handleContinue = (e) => {
+    // Prevent default form submission behavior
+    if (e) e.preventDefault();
+    
     if (!selectedPlan) return;
     
     const plan = plans.find(p => p.id === selectedPlan);
@@ -204,6 +210,8 @@ const SubscriptionPlans = ({ onSelectPlan, onBack }) => {
               <Card 
                 className={`${classes.planCard} ${selectedPlan === plan.id ? classes.planCardHighlighted : ''}`}
                 elevation={selectedPlan === plan.id ? 4 : 1}
+                onClick={() => handleSelectPlan(plan.id)}
+                style={{ cursor: 'pointer' }}
               >
                 <CardContent>
                   <Typography variant="h5" className={classes.planTitle}>
@@ -245,26 +253,29 @@ const SubscriptionPlans = ({ onSelectPlan, onBack }) => {
           All plans include a 30-day free trial. No credit card required to start.
         </Typography>
 
-        <Box width="100%" mt={4} display="flex" flexDirection="column" alignItems="center">
-          <Button
-            className={classes.selectButton}
-            variant="contained"
-            color="primary"
-            onClick={handleContinue}
-            disabled={!selectedPlan}
-            style={{ maxWidth: 300 }}
-          >
-            Continue with {selectedPlan ? plans.find(p => p.id === selectedPlan).title : 'selected plan'}
-          </Button>
-          
-          <Button
-            className={classes.backButton}
-            variant="text"
-            onClick={onBack}
-          >
-            Back
-          </Button>
-        </Box>
+        <form onSubmit={handleContinue} className={classes.form}>
+          <Box width="100%" mt={4} display="flex" flexDirection="column" alignItems="center">
+            <Button
+              className={classes.selectButton}
+              variant="contained"
+              color="primary"
+              type="submit"
+              disabled={!selectedPlan}
+              style={{ maxWidth: 300 }}
+            >
+              Continue with {selectedPlan ? plans.find(p => p.id === selectedPlan).title : 'selected plan'}
+            </Button>
+            
+            <Button
+              className={classes.backButton}
+              variant="text"
+              onClick={onBack}
+              type="button"
+            >
+              Back
+            </Button>
+          </Box>
+        </form>
       </Paper>
     </Container>
   );
