@@ -25,11 +25,9 @@ import {
   DialogContent,
   DialogActions,
   TextField,
-  Fab,
   CircularProgress
 } from '@material-ui/core';
 import Alert from '@material-ui/lab/Alert';
-import { AssistantWidget } from './assistant';
 import { 
   Today as TodayIcon,
   ArrowBack as ArrowBackIcon,
@@ -49,12 +47,7 @@ import {
   Notifications as NotificationsIcon,
   Share as ShareIcon,
   Add as AddIcon,
-  Edit as EditIcon,
-  Error as ErrorIcon,
-  Wifi as WifiIcon,
-  WifiOff as WifiOffIcon,
-  CloudOff as CloudOffIcon,
-  Info as InfoIcon
+  Edit as EditIcon
 } from '@material-ui/icons';
 import format from 'date-fns/format';
 import addDays from 'date-fns/addDays';
@@ -64,163 +57,8 @@ import isPast from 'date-fns/isPast';
 import isFuture from 'date-fns/isFuture';
 import axios from 'axios';
 import io from 'socket.io-client';
-import ErrorBoundary from './ErrorBoundary';
-import { LoadingFallback, ApiErrorFallback, OfflineFallback, API_STATES } from '../utils/fallbackComponents';
-import { getApiUrl, getApiTimeout, getApiRetryAttempts, getApiBaseUrl } from '../utils/apiConfig';
 
-// Custom hook for API calls with retry logic and timeout
-const useApiWithRetry = (url, options = {}) => {
-  const [data, setData] = useState(null);
-  const [status, setStatus] = useState(API_STATES.IDLE);
-  const [error, setError] = useState(null);
-  const [retryCount, setRetryCount] = useState(0);
-  const timeoutRef = useRef(null);
-  
-  const { 
-    method = 'GET', 
-    payload = null, 
-    maxRetries = getApiRetryAttempts(), 
-    retryDelay = 1000,
-    timeout = getApiTimeout(),
-    dependencies = [],
-    onSuccess = () => {},
-    onError = () => {},
-    mockData = null,
-    initialData = null
-  } = options;
-  
-  // Initialize with initialData if provided
-  useEffect(() => {
-    if (initialData) {
-      setData(initialData);
-      setStatus(API_STATES.SUCCESS);
-    }
-  }, [initialData]);
-  
-  const executeRequest = async () => {
-    // Don't make the request if we're using initialData only
-    if (options.useInitialDataOnly) {
-      return;
-    }
-    
-    // Clear any existing timeout
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
-    
-    setStatus(API_STATES.LOADING);
-    
-    // Set timeout for the request
-    timeoutRef.current = setTimeout(() => {
-      if (status === API_STATES.LOADING) {
-        console.log(`API request timed out after ${timeout}ms: ${url}`);
-        setStatus(API_STATES.TIMEOUT);
-        
-        // If we have mock data, use it as fallback
-        if (mockData) {
-          console.log('Using mock data as fallback');
-          setData(mockData);
-          onSuccess(mockData);
-        }
-      }
-    }, timeout);
-    
-    try {
-      // Check for network connectivity
-      if (!navigator.onLine) {
-        throw new Error('No internet connection');
-      }
-      
-      // Log the request for debugging
-      console.log(`API Request (${method}): ${url}`, payload);
-      
-      // Execute the request with the appropriate method
-      let response;
-      if (method === 'GET') {
-        response = await axios.get(url, { timeout });
-      } else if (method === 'POST') {
-        response = await axios.post(url, payload, { timeout });
-      } else if (method === 'PUT') {
-        response = await axios.put(url, payload, { timeout });
-      } else if (method === 'DELETE') {
-        response = await axios.delete(url, { timeout });
-      }
-      
-      // Clear the timeout since request completed
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      }
-      
-      // Log the response for debugging
-      console.log(`API Response (${method}): ${url}`, response.data);
-      
-      setData(response.data);
-      setStatus(API_STATES.SUCCESS);
-      setError(null);
-      setRetryCount(0);
-      onSuccess(response.data);
-    } catch (err) {
-      console.error(`API Error (${method}): ${url}`, err);
-      
-      // Clear the timeout since request completed (with error)
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      }
-      
-      // Determine if we should retry
-      if (retryCount < maxRetries) {
-        console.log(`Retrying API call (${retryCount + 1}/${maxRetries})...`);
-        setRetryCount(prev => prev + 1);
-        
-        // Schedule retry after delay
-        setTimeout(() => {
-          executeRequest();
-        }, retryDelay * Math.pow(2, retryCount)); // Exponential backoff
-      } else {
-        // If we have mock data and exhausted retries, use it as fallback
-        if (mockData) {
-          console.log('Using mock data as fallback after retry failure');
-          setData(mockData);
-          setStatus(API_STATES.SUCCESS);
-          onSuccess(mockData);
-        } else {
-          setError(err);
-          setStatus(API_STATES.ERROR);
-          onError(err);
-        }
-      }
-    }
-  };
-  
-  // Execute the request when dependencies change
-  useEffect(() => {
-    // Skip API call if we're using initialData only
-    if (!options.useInitialDataOnly) {
-      executeRequest();
-    }
-    
-    // Cleanup function to clear timeout on unmount or dependencies change
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-    };
-  }, [...dependencies]);
-  
-  // Function to manually retry the request
-  const retry = () => {
-    setRetryCount(0);
-    executeRequest();
-  };
-  
-  return { data, status, error, retry };
-};
-
-// Rest of the component code remains the same as before
 const useStyles = makeStyles((theme) => ({
-  // Styles remain the same as in the original component
   root: {
     flexGrow: 1,
     padding: theme.spacing(3),
@@ -460,48 +298,17 @@ const useStyles = makeStyles((theme) => ({
       opacity: 0.6,
     },
   },
+  loadingContainer: {
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    height: '50vh',
+  },
   errorContainer: {
     padding: theme.spacing(3),
-    textAlign: 'center',
-    marginTop: theme.spacing(4),
-  },
-  errorIcon: {
-    fontSize: 60,
-    color: theme.palette.error.main,
-    marginBottom: theme.spacing(2),
-  },
-  connectionStatus: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: theme.spacing(1),
+    marginBottom: theme.spacing(3),
+    backgroundColor: '#ffebee',
     borderRadius: theme.spacing(1),
-    marginBottom: theme.spacing(2),
-  },
-  online: {
-    backgroundColor: 'rgba(76, 175, 80, 0.1)',
-  },
-  offline: {
-    backgroundColor: 'rgba(211, 47, 47, 0.1)',
-  },
-  mockDataBanner: {
-    backgroundColor: 'rgba(255, 152, 0, 0.1)',
-    padding: theme.spacing(1),
-    borderRadius: theme.spacing(1),
-    marginBottom: theme.spacing(2),
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  mockDataIcon: {
-    color: '#ff9800',
-    marginRight: theme.spacing(1),
-  },
-  tryConnectButton: {
-    marginLeft: theme.spacing(2),
-  },
-  assistantContainer: {
-    marginBottom: theme.spacing(4),
   }
 }));
 
@@ -519,31 +326,6 @@ const activityIcons = {
   medicine: <MedicineIcon />,
   default: <TimeIcon />
 };
-
-// Sample mock data for offline fallback
-const MOCK_ROUTINES = [
-  {
-    id: 1,
-    baby_name: 'Baby',
-    routine: [
-      { type: 'wake', start_time: '07:30', notes: 'Woke up happy' },
-      { type: 'feeding', start_time: '08:00', duration: '20 minutes', feeding_type: 'Bottle', notes: '4oz formula' },
-      { type: 'diaper', start_time: '09:15', diaper_type: 'Wet' },
-      { type: 'nap', start_time: '10:00', duration: '45 minutes' },
-      { type: 'feeding', start_time: '12:00', duration: '25 minutes', feeding_type: 'Bottle', notes: '5oz formula' },
-      { type: 'play', start_time: '13:30', duration: '30 minutes', notes: 'Tummy time' },
-      { type: 'nap', start_time: '14:30', duration: '1 hour' },
-      { type: 'feeding', start_time: '16:00', duration: '20 minutes', feeding_type: 'Bottle', notes: '4oz formula' },
-      { type: 'bath', start_time: '18:30', duration: '15 minutes' },
-      { type: 'sleep', start_time: '19:30', notes: 'Bedtime routine completed' }
-    ]
-  }
-];
-
-const MOCK_USERS = [
-  { id: 1, name: 'Parent 1', email: 'parent1@example.com', role: 'Primary Caregiver', online: true },
-  { id: 2, name: 'Parent 2', email: 'parent2@example.com', role: 'Caregiver' }
-];
 
 // Helper function to get activity status
 const getActivityStatus = (activity, currentTime) => {
@@ -626,174 +408,164 @@ const formatTime = (timeString) => {
   }
 };
 
-const MultiUserDashboardWithErrorHandling = ({ initialData, useMockData = false, userData = null }) => {
+// Helper function to format date and time for logs
+const formatDateTime = (dateTimeString) => {
+  if (!dateTimeString) return '';
+  
+  try {
+    const date = new Date(dateTimeString);
+    return format(date, 'MMM d, h:mm a');
+  } catch (error) {
+    console.error('Error formatting date time:', error);
+    return dateTimeString;
+  }
+};
+
+const MultiUserDashboardWithErrorHandling = () => {
   const classes = useStyles();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [routines, setRoutines] = useState([]);
-  const [users, setUsers] = useState([]);
   const [caregiverUpdates, setCaregiverUpdates] = useState([]);
+  const [activityLogs, setActivityLogs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [babyName, setBabyName] = useState('Baby');
+  const [users, setUsers] = useState([]);
+  const [currentUser, setCurrentUser] = useState(null);
   const [notifications, setNotifications] = useState([]);
+  const [showNotification, setShowNotification] = useState(false);
+  const [notificationMessage, setNotificationMessage] = useState('');
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
-  const [socketConnected, setSocketConnected] = useState(false);
+  const [connected, setConnected] = useState(false);
   const socketRef = useRef(null);
   
-  // API calls with retry logic and fallback to mock data
-  const routinesApi = useApiWithRetry('/api/routines', {
-    dependencies: [selectedDate],
-    mockData: MOCK_ROUTINES,
-    initialData: initialData,
-    useInitialDataOnly: useMockData
-  });
-  
-  const usersApi = useApiWithRetry('/api/users', {
-    dependencies: [],
-    mockData: MOCK_USERS,
-    useInitialDataOnly: useMockData
-  });
-  
-  const caregiverUpdatesApi = useApiWithRetry('/api/caregiver-updates', {
-    dependencies: [selectedDate],
-    mockData: [],
-    useInitialDataOnly: useMockData
-  });
-  
-  // Set data from API responses
+  // Initialize socket connection
   useEffect(() => {
-    if (routinesApi.data) {
-      setRoutines(routinesApi.data);
-    }
-    
-    if (usersApi.data) {
-      setUsers(usersApi.data);
-    }
-    
-    if (caregiverUpdatesApi.data) {
-      setCaregiverUpdates(caregiverUpdatesApi.data);
-    }
-  }, [routinesApi.data, usersApi.data, caregiverUpdatesApi.data]);
-  
-  // Setup socket connection for real-time updates
-  useEffect(() => {
-    if (useMockData) {
-      return; // Skip socket setup in mock mode
-    }
-    
     try {
-      // Connect to socket server
-      const socketUrl = getApiBaseUrl();
-      socketRef.current = io(socketUrl, {
-        reconnectionAttempts: 5,
-        reconnectionDelay: 1000,
-        timeout: 10000
-      });
+      // Connect to the socket server
+      socketRef.current = io(process.env.REACT_APP_API_URL || 'http://localhost:5000');
       
-      // Socket event handlers
+      // Set up event listeners
       socketRef.current.on('connect', () => {
-        console.log('Socket connected');
-        setSocketConnected(true);
-        setSnackbar({
-          open: true,
-          message: 'Connected to real-time updates',
-          severity: 'success'
-        });
+        console.log('Connected to socket server');
+        setConnected(true);
       });
       
       socketRef.current.on('disconnect', () => {
-        console.log('Socket disconnected');
-        setSocketConnected(false);
+        console.log('Disconnected from socket server');
+        setConnected(false);
       });
       
       socketRef.current.on('routine_update', (data) => {
         console.log('Received routine update:', data);
-        // Update routines with new data
-        setRoutines(prevRoutines => {
-          const updatedRoutines = [...prevRoutines];
-          const index = updatedRoutines.findIndex(r => r.id === data.id);
-          
-          if (index !== -1) {
-            updatedRoutines[index] = data;
-          } else {
-            updatedRoutines.push(data);
+        // Update routines if it's for the current date
+        if (data && data.date) {
+          const routineDate = new Date(data.date);
+          if (isSameDay(routineDate, selectedDate)) {
+            fetchData();
           }
           
-          return updatedRoutines;
-        });
-        
-        // Show notification
-        setSnackbar({
-          open: true,
-          message: `Routine updated for ${data.baby_name}`,
-          severity: 'info'
-        });
+          // Show notification
+          setNotificationMessage(`${data.user_name || 'Someone'} updated the routine`);
+          setShowNotification(true);
+        }
       });
       
       socketRef.current.on('caregiver_update', (data) => {
         console.log('Received caregiver update:', data);
-        // Add to caregiver updates
-        setCaregiverUpdates(prev => [data, ...prev]);
-        
-        // Add to notifications
-        setNotifications(prev => [
-          {
-            id: Date.now(),
-            type: 'caregiver_update',
-            message: `${data.caregiver_name} logged ${data.activity_type} for ${data.baby_name}`,
-            timestamp: new Date().toISOString(),
-            read: false
-          },
-          ...prev
-        ]);
+        // Update caregiver updates
+        fetchData();
         
         // Show notification
-        setSnackbar({
-          open: true,
-          message: `${data.caregiver_name} logged ${data.activity_type} for ${data.baby_name}`,
-          severity: 'info'
-        });
+        setNotificationMessage(`New update from ${data && data.caregiver_name ? data.caregiver_name : 'caregiver'}`);
+        setShowNotification(true);
       });
       
-      socketRef.current.on('user_online', (data) => {
-        console.log('User online:', data);
-        // Update user status
-        setUsers(prev => {
-          const updatedUsers = [...prev];
-          const index = updatedUsers.findIndex(u => u.id === data.id);
-          
-          if (index !== -1) {
-            updatedUsers[index] = { ...updatedUsers[index], online: true };
-          }
-          
-          return updatedUsers;
-        });
+      socketRef.current.on('user_activity', (data) => {
+        console.log('Received user activity:', data);
+        // Add to activity logs
+        if (data) {
+          setActivityLogs(prevLogs => [data, ...prevLogs]);
+        }
       });
       
-      socketRef.current.on('user_offline', (data) => {
-        console.log('User offline:', data);
-        // Update user status
-        setUsers(prev => {
-          const updatedUsers = [...prev];
-          const index = updatedUsers.findIndex(u => u.id === data.id);
-          
-          if (index !== -1) {
-            updatedUsers[index] = { ...updatedUsers[index], online: false };
-          }
-          
-          return updatedUsers;
-        });
-      });
-      
-      // Cleanup on unmount
+      // Clean up on unmount
       return () => {
         if (socketRef.current) {
           socketRef.current.disconnect();
         }
       };
-    } catch (error) {
-      console.error('Socket connection error:', error);
+    } catch (err) {
+      console.error('Socket connection error:', err);
+      setError('Failed to connect to real-time updates. Some features may not work properly.');
     }
-  }, [useMockData]);
+  }, []);
+  
+  // Helper function to check if two dates are the same day
+  const isSameDay = (date1, date2) => {
+    if (!date1 || !date2) return false;
+    
+    return (
+      date1.getFullYear() === date2.getFullYear() &&
+      date1.getMonth() === date2.getMonth() &&
+      date1.getDate() === date2.getDate()
+    );
+  };
+  
+  // Fetch routines and caregiver updates
+  useEffect(() => {
+    fetchData();
+  }, [selectedDate]);
+  
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      // Format date for API requests
+      const dateStr = format(selectedDate, 'yyyy-MM-dd');
+      
+      // Fetch routines
+      const routinesResponse = await axios.get(`/api/routines?date=${dateStr}`);
+      
+      // Fetch caregiver updates
+      const updatesResponse = await axios.get(`/api/caregiver-updates?date=${dateStr}`);
+      
+      // Fetch activity logs
+      const logsResponse = await axios.get(`/api/activity-logs?date=${dateStr}`);
+      
+      // Fetch users
+      const usersResponse = await axios.get('/api/users');
+      
+      // Fetch current user
+      const currentUserResponse = await axios.get('/api/users/current');
+      
+      // Set data with defensive checks
+      setRoutines(Array.isArray(routinesResponse.data) ? routinesResponse.data : []);
+      setCaregiverUpdates(Array.isArray(updatesResponse.data) ? updatesResponse.data : []);
+      setActivityLogs(Array.isArray(logsResponse.data) ? logsResponse.data : []);
+      setUsers(Array.isArray(usersResponse.data) ? usersResponse.data : []);
+      setCurrentUser(currentUserResponse.data || null);
+      
+      // Extract baby name if available
+      if (routinesResponse.data && Array.isArray(routinesResponse.data) && 
+          routinesResponse.data.length > 0 && routinesResponse.data[0].baby_name) {
+        setBabyName(routinesResponse.data[0].baby_name);
+      }
+      
+      setLoading(false);
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching data:', err);
+      setError('Failed to load data. Please try again later.');
+      setLoading(false);
+      
+      // Set empty arrays for data to prevent forEach errors
+      setRoutines([]);
+      setCaregiverUpdates([]);
+      setActivityLogs([]);
+      setUsers([]);
+    }
+  };
   
   // Navigate to previous day
   const goToPreviousDay = () => {
@@ -810,69 +582,43 @@ const MultiUserDashboardWithErrorHandling = ({ initialData, useMockData = false,
     setSelectedDate(new Date());
   };
   
-  // Handle share dialog
-  const handleOpenShareDialog = () => {
-    setShowShareDialog(true);
-  };
-  
-  const handleCloseShareDialog = () => {
-    setShowShareDialog(false);
-  };
-  
-  const handleInviteChange = (e) => {
-    setInviteEmail(e.target.value);
-  };
-  
-  const handleSendInvite = () => {
-    // In a real app, this would send an API request
-    console.log('Sending invite to:', inviteEmail);
-    
-    // Show success message
-    setSnackbar({
-      open: true,
-      message: `Invitation sent to ${inviteEmail}`,
-      severity: 'success'
-    });
-    
-    // Close dialog and reset form
-    setShowShareDialog(false);
-    setInviteEmail('');
-  };
-  
-  // Handle snackbar close
-  const handleCloseSnackbar = () => {
-    setSnackbar({ ...snackbar, open: false });
-  };
-  
   // Get all activities for the selected date
   const getActivitiesForSelectedDate = () => {
     // Extract activities from routines
     let activities = [];
     
-    routines.forEach(routine => {
-      if (routine.routine && Array.isArray(routine.routine)) {
-        activities = [...activities, ...routine.routine.map(activity => ({
-          ...activity,
-          source: 'routine',
-          baby_name: routine.baby_name || 'Baby'
-        }))];
-      }
-    });
+    // Add defensive check for routines
+    if (Array.isArray(routines)) {
+      routines.forEach(routine => {
+        if (routine && routine.routine && Array.isArray(routine.routine)) {
+          activities = [...activities, ...routine.routine.map(activity => ({
+            ...activity,
+            source: 'routine',
+            baby_name: routine.baby_name || babyName,
+            user_id: routine.user_id,
+            created_at: routine.created_at
+          }))];
+        }
+      });
+    }
     
-    // Add caregiver updates as activities
-    caregiverUpdates.forEach(update => {
-      if (update.activity_type) {
-        activities.push({
-          type: update.activity_type,
-          start_time: update.time,
-          actual_time: update.time,
-          source: 'caregiver',
-          caregiver_name: update.caregiver_name || 'Caregiver',
-          notes: update.notes,
-          baby_name: update.baby_name || 'Baby'
-        });
-      }
-    });
+    // Add caregiver updates as activities with defensive check
+    if (Array.isArray(caregiverUpdates)) {
+      caregiverUpdates.forEach(update => {
+        if (update && update.activity_type) {
+          activities.push({
+            type: update.activity_type,
+            start_time: update.time,
+            actual_time: update.time,
+            source: 'caregiver',
+            caregiver_name: update.caregiver_name || 'Caregiver',
+            notes: update.notes,
+            baby_name: update.baby_name || babyName,
+            created_at: update.timestamp
+          });
+        }
+      });
+    }
     
     // Sort activities by start_time
     return activities.sort((a, b) => {
@@ -908,10 +654,10 @@ const MultiUserDashboardWithErrorHandling = ({ initialData, useMockData = false,
   
   // Render activity icon with appropriate styling
   const renderActivityIcon = (activity) => {
-    const icon = activityIcons[activity.type] || activityIcons.default;
+    const icon = activity && activity.type ? activityIcons[activity.type] || activityIcons.default : activityIcons.default;
     
     return (
-      <Avatar className={`${classes.activityIcon} ${classes[activity.type] || ''}`}>
+      <Avatar className={`${classes.activityIcon} ${activity && activity.type ? classes[activity.type] || '' : ''}`}>
         {icon}
       </Avatar>
     );
@@ -919,6 +665,8 @@ const MultiUserDashboardWithErrorHandling = ({ initialData, useMockData = false,
   
   // Render activity status chip
   const renderActivityStatus = (activity) => {
+    if (!activity) return null;
+    
     const status = getActivityStatus(activity);
     
     let chipLabel = 'Scheduled';
@@ -961,7 +709,7 @@ const MultiUserDashboardWithErrorHandling = ({ initialData, useMockData = false,
           </Grid>
           <Grid item xs>
             <Typography variant="h6">
-              {currentActivity.baby_name} is {currentActivity.type === 'nap' ? 'napping' : 
+              {babyName} is {currentActivity.type === 'nap' ? 'napping' : 
                 currentActivity.type === 'feeding' ? 'feeding' :
                 currentActivity.type === 'sleep' ? 'sleeping' :
                 currentActivity.type === 'play' ? 'playing' :
@@ -992,7 +740,7 @@ const MultiUserDashboardWithErrorHandling = ({ initialData, useMockData = false,
   const renderActivityTimeline = () => {
     const activities = getActivitiesForSelectedDate();
     
-    if (activities.length === 0) {
+    if (!Array.isArray(activities) || activities.length === 0) {
       return (
         <Paper className={classes.noActivities} elevation={0}>
           <Typography variant="body1" color="textSecondary">
@@ -1013,7 +761,11 @@ const MultiUserDashboardWithErrorHandling = ({ initialData, useMockData = false,
     return (
       <div className={classes.activityTimeline}>
         {activities.map((activity, index) => {
+          if (!activity) return null;
+          
           const status = getActivityStatus(activity);
+          const user = activity.user_id && Array.isArray(users) ? 
+                      users.find(u => u && u.id === activity.user_id) : null;
           
           return (
             <Paper 
@@ -1034,7 +786,7 @@ const MultiUserDashboardWithErrorHandling = ({ initialData, useMockData = false,
               
               <div className={classes.activityDetails}>
                 <Typography variant="body1">
-                  {activity.type.charAt(0).toUpperCase() + activity.type.slice(1)}
+                  {activity.type ? activity.type.charAt(0).toUpperCase() + activity.type.slice(1) : 'Activity'}
                   {activity.type === 'feeding' && activity.feeding_type && ` (${activity.feeding_type})`}
                   {activity.type === 'diaper' && activity.diaper_type && ` (${activity.diaper_type})`}
                 </Typography>
@@ -1042,6 +794,7 @@ const MultiUserDashboardWithErrorHandling = ({ initialData, useMockData = false,
                   {activity.duration && `Duration: ${activity.duration}`}
                   {activity.location && ` • ${activity.location}`}
                   {activity.notes && ` • ${activity.notes}`}
+                  {user && ` • Added by ${user.name || user.email}`}
                 </Typography>
               </div>
               
@@ -1049,7 +802,7 @@ const MultiUserDashboardWithErrorHandling = ({ initialData, useMockData = false,
                 {renderActivityStatus(activity)}
                 {activity.source === 'caregiver' && activity.caregiver_name && (
                   <Chip 
-                    size="small" 
+                    size="small"
                     label={activity.caregiver_name}
                     className={classes.caregiverChip}
                   />
@@ -1062,280 +815,256 @@ const MultiUserDashboardWithErrorHandling = ({ initialData, useMockData = false,
     );
   };
   
-  // Render users section
-  const renderUsers = () => {
-    if (users.length === 0) {
+  // Render activity logs
+  const renderActivityLogs = () => {
+    if (!Array.isArray(activityLogs) || activityLogs.length === 0) {
+      return (
+        <Paper className={classes.noActivities} elevation={0}>
+          <Typography variant="body1" color="textSecondary">
+            No activity logs for this day.
+          </Typography>
+        </Paper>
+      );
+    }
+    
+    return (
+      <div className={classes.activityLog}>
+        <Typography variant="h6" gutterBottom>
+          Activity Timeline
+        </Typography>
+        
+        {activityLogs.map((log, index) => {
+          if (!log) return null;
+          
+          return (
+            <div key={index} className={classes.logItem}>
+              <div className={classes.logItemHeader}>
+                <Avatar className={classes.logItemAvatar}>
+                  {log.user_name ? log.user_name.charAt(0).toUpperCase() : 'U'}
+                </Avatar>
+                <Typography variant="body2">
+                  {log.user_name || 'User'} {log.action || 'performed an action'}
+                </Typography>
+                <Typography variant="caption" className={classes.logItemTime}>
+                  {formatDateTime(log.timestamp)}
+                </Typography>
+              </div>
+              {log.details && (
+                <Typography variant="body2" color="textSecondary">
+                  {log.details}
+                </Typography>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+  
+  // Render user section
+  const renderUserSection = () => {
+    if (!Array.isArray(users) || users.length === 0) {
       return null;
     }
     
     return (
       <div className={classes.userSection}>
         <Typography variant="h6" gutterBottom>
-          Caregivers
+          Family & Caregivers
         </Typography>
-        <Grid container spacing={2}>
-          {users.map((user) => (
-            <Grid item xs={12} sm={6} md={4} key={user.id}>
-              <Paper className={classes.userCard} elevation={0}>
-                <Box display="flex" alignItems="center">
-                  <Avatar className={classes.userAvatar}>
-                    {user.name.charAt(0)}
-                  </Avatar>
-                  <Box ml={2}>
+        
+        {users.map((user, index) => {
+          if (!user) return null;
+          
+          return (
+            <Card key={index} className={classes.userCard}>
+              <CardContent>
+                <Grid container spacing={2} alignItems="center">
+                  <Grid item>
+                    <Avatar className={classes.userAvatar}>
+                      {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                    </Avatar>
+                  </Grid>
+                  <Grid item xs>
                     <Typography variant="body1">
-                      {user.name}
-                      {user.online && (
-                        <Chip 
-                          size="small" 
-                          label="Online" 
-                          className={classes.statusInProgress}
-                          style={{ marginLeft: 8 }}
-                        />
-                      )}
+                      {user.name || 'User'}
                     </Typography>
                     <Typography variant="body2" color="textSecondary">
-                      {user.role}
+                      {user.role || 'Family Member'} • {user.email}
                     </Typography>
-                  </Box>
-                </Box>
-                <div className={classes.userActions}>
-                  <Button size="small" color="primary">
-                    Message
-                  </Button>
-                  <Button size="small">
-                    View Activity
-                  </Button>
-                </div>
-              </Paper>
-            </Grid>
-          ))}
-        </Grid>
-      </div>
-    );
-  };
-  
-  // Render activity log
-  const renderActivityLog = () => {
-    if (caregiverUpdates.length === 0) {
-      return null;
-    }
-    
-    return (
-      <div className={classes.activityLog}>
-        <Typography variant="h6" gutterBottom>
-          Recent Updates
-        </Typography>
-        {caregiverUpdates.slice(0, 5).map((update, index) => (
-          <div key={index} className={classes.logItem}>
-            <div className={classes.logItemHeader}>
-              <Avatar className={classes.logItemAvatar}>
-                {update.caregiver_name ? update.caregiver_name.charAt(0) : 'C'}
-              </Avatar>
-              <Typography variant="body2">
-                <strong>{update.caregiver_name || 'Caregiver'}</strong> logged {update.activity_type} for {update.baby_name || 'Baby'}
-              </Typography>
-              <Typography variant="caption" className={classes.logItemTime}>
-                {formatTime(update.time)}
-              </Typography>
-            </div>
-            {update.notes && (
-              <Typography variant="body2" color="textSecondary">
-                {update.notes}
-              </Typography>
-            )}
-          </div>
-        ))}
+                  </Grid>
+                  <Grid item>
+                    <Chip 
+                      size="small"
+                      label={user.status === 'online' ? 'Online' : 'Offline'}
+                      style={{ 
+                        backgroundColor: user.status === 'online' ? '#4caf50' : '#bbbbbb',
+                        color: 'white'
+                      }}
+                    />
+                  </Grid>
+                </Grid>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
     );
   };
   
   // Render share dialog
-  const renderShareDialog = () => (
-    <Dialog open={showShareDialog} onClose={handleCloseShareDialog}>
-      <DialogTitle>Invite a Caregiver</DialogTitle>
-      <DialogContent className={classes.dialogContent}>
-        <Typography variant="body2" gutterBottom>
-          Share access to your baby's routine with family members or caregivers.
-        </Typography>
-        <TextField
-          label="Email Address"
-          variant="outlined"
-          fullWidth
-          className={classes.inviteField}
-          value={inviteEmail}
-          onChange={handleInviteChange}
-          placeholder="example@email.com"
-        />
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={handleCloseShareDialog} color="default">
-          Cancel
-        </Button>
-        <Button 
-          onClick={handleSendInvite} 
-          color="primary" 
-          variant="contained"
-          disabled={!inviteEmail}
-        >
-          Send Invite
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-  
-  // Render error state
-  const renderError = () => {
-    if (routinesApi.status === API_STATES.ERROR && !useMockData) {
-      return (
-        <ApiErrorFallback 
-          error={routinesApi.error} 
-          resetErrorBoundary={routinesApi.retry} 
-        />
-      );
-    }
-    return null;
-  };
-  
-  // Render loading state
-  const renderLoading = () => {
-    if (routinesApi.status === API_STATES.LOADING) {
-      return <LoadingFallback message="Loading baby routines..." />;
-    }
-    return null;
+  const renderShareDialog = () => {
+    return (
+      <Dialog 
+        open={showShareDialog} 
+        onClose={() => setShowShareDialog(false)}
+        aria-labelledby="share-dialog-title"
+      >
+        <DialogTitle id="share-dialog-title">Invite Caregiver</DialogTitle>
+        <DialogContent className={classes.dialogContent}>
+          <Typography variant="body2" paragraph>
+            Invite a caregiver to access and update {babyName}'s routines.
+          </Typography>
+          <TextField
+            label="Email Address"
+            variant="outlined"
+            fullWidth
+            className={classes.inviteField}
+            value={inviteEmail}
+            onChange={(e) => setInviteEmail(e.target.value)}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowShareDialog(false)} color="primary">
+            Cancel
+          </Button>
+          <Button 
+            onClick={() => {
+              // Send invite
+              console.log('Sending invite to:', inviteEmail);
+              setShowShareDialog(false);
+              setNotificationMessage(`Invitation sent to ${inviteEmail}`);
+              setShowNotification(true);
+              setInviteEmail('');
+            }} 
+            color="primary" 
+            variant="contained"
+            disabled={!inviteEmail}
+          >
+            Send Invite
+          </Button>
+        </DialogActions>
+      </Dialog>
+    );
   };
   
   // Main render
+  if (loading) {
+    return (
+      <div className={classes.loadingContainer}>
+        <CircularProgress />
+      </div>
+    );
+  }
+  
   return (
     <Container className={classes.root}>
-      {/* Connection status indicator */}
-      {!navigator.onLine && (
-        <Box className={`${classes.connectionStatus} ${classes.offline}`}>
-          <WifiOffIcon style={{ marginRight: 8 }} />
-          <Typography variant="body2">
-            You are currently offline. Some features may be limited.
+      {error && (
+        <Paper className={classes.errorContainer} elevation={0}>
+          <Typography variant="body1" color="error">
+            {error}
           </Typography>
           <Button 
-            size="small" 
             variant="outlined" 
-            className={classes.tryConnectButton}
-            onClick={() => window.location.reload()}
+            color="primary" 
+            onClick={fetchData} 
+            style={{ marginTop: 16 }}
           >
-            Try to reconnect
+            Retry
           </Button>
-        </Box>
+        </Paper>
       )}
       
-      {/* Mock data indicator */}
-      {useMockData && (
-        <Box className={classes.mockDataBanner}>
-          <InfoIcon className={classes.mockDataIcon} />
+      {connected && (
+        <div className={classes.realTimeIndicator}>
+          <div className={classes.realTimeIcon}>●</div>
           <Typography variant="body2">
-            Viewing demo data. Connect to the internet to see real-time updates.
+            Real-time updates active
           </Typography>
-        </Box>
+        </div>
       )}
       
-      {/* AI Parenting Assistant Widget */}
-      <Box className={classes.assistantContainer}>
-        <AssistantWidget 
-          userId={userData?.id || '1'} 
-          childData={routines.length > 0 ? routines[0] : null} 
-        />
-      </Box>
-      
-      {/* Real-time connection indicator */}
-      {socketConnected && (
-        <Box className={classes.realTimeIndicator}>
-          <WifiIcon className={classes.realTimeIcon} />
-          <Typography variant="body2">
-            Connected to real-time updates
-          </Typography>
-        </Box>
-      )}
-      
-      {/* Error and loading states */}
-      {renderError()}
-      {renderLoading()}
-      
-      {/* Main content - only show when not in error or loading state */}
-      {routinesApi.status !== API_STATES.ERROR && routinesApi.status !== API_STATES.LOADING && (
-        <>
-          {/* Header with date navigation */}
-          <Box className={classes.header}>
-            <Box className={classes.dateNavigation}>
-              <IconButton onClick={goToPreviousDay}>
-                <ArrowBackIcon />
-              </IconButton>
-              
-              <Box className={classes.dateDisplay}>
-                <TodayIcon style={{ marginRight: 8 }} />
-                <Typography variant="h6">
-                  {format(selectedDate, 'EEEE, MMMM d, yyyy')}
-                  {isToday(selectedDate) && (
-                    <Chip 
-                      size="small" 
-                      label="Today" 
-                      style={{ marginLeft: 8 }}
-                    />
-                  )}
-                </Typography>
-              </Box>
-              
-              <IconButton onClick={goToNextDay}>
-                <ArrowForwardIcon />
-              </IconButton>
-            </Box>
-            
-            {!isToday(selectedDate) && (
-              <Button 
-                variant="outlined" 
-                startIcon={<TodayIcon />}
-                onClick={goToToday}
-              >
-                Go to Today
-              </Button>
-            )}
-          </Box>
+      <div className={classes.header}>
+        <Typography variant="h4" gutterBottom>
+          {babyName}'s Dashboard
+        </Typography>
+        
+        <div className={classes.dateNavigation}>
+          <div className={classes.dateDisplay}>
+            <TodayIcon style={{ marginRight: 8 }} />
+            <Typography variant="h6">
+              {format(selectedDate, 'EEEE, MMMM d, yyyy')}
+              {isToday(selectedDate) && ' (Today)'}
+            </Typography>
+          </div>
           
-          {/* Current activity */}
-          {renderCurrentActivity()}
-          
-          {/* Activity timeline */}
+          <div>
+            <IconButton onClick={goToPreviousDay}>
+              <ArrowBackIcon />
+            </IconButton>
+            <Button 
+              variant="outlined" 
+              onClick={goToToday}
+              disabled={isToday(selectedDate)}
+            >
+              Today
+            </Button>
+            <IconButton 
+              onClick={goToNextDay}
+              disabled={isFuture(selectedDate)}
+            >
+              <ArrowForwardIcon />
+            </IconButton>
+          </div>
+        </div>
+      </div>
+      
+      {renderCurrentActivity()}
+      
+      <Grid container spacing={3}>
+        <Grid item xs={12} md={8}>
           <Typography variant="h6" gutterBottom>
             Daily Schedule
           </Typography>
           {renderActivityTimeline()}
-          
-          {/* Users section */}
-          {renderUsers()}
-          
-          {/* Activity log */}
-          {renderActivityLog()}
-          
-          {/* Share button */}
-          <Fab 
-            color="primary" 
-            className={classes.shareButton}
-            onClick={handleOpenShareDialog}
-          >
-            <ShareIcon />
-          </Fab>
-          
-          {/* Share dialog */}
-          {renderShareDialog()}
-          
-          {/* Snackbar for notifications */}
-          <Snackbar 
-            open={snackbar.open} 
-            autoHideDuration={6000} 
-            onClose={handleCloseSnackbar}
-          >
-            <Alert onClose={handleCloseSnackbar} severity={snackbar.severity}>
-              {snackbar.message}
-            </Alert>
-          </Snackbar>
-        </>
-      )}
+        </Grid>
+        
+        <Grid item xs={12} md={4}>
+          {renderUserSection()}
+          {renderActivityLogs()}
+        </Grid>
+      </Grid>
+      
+      <IconButton 
+        color="primary" 
+        className={classes.shareButton}
+        onClick={() => setShowShareDialog(true)}
+      >
+        <ShareIcon />
+      </IconButton>
+      
+      {renderShareDialog()}
+      
+      <Snackbar
+        open={showNotification}
+        autoHideDuration={6000}
+        onClose={() => setShowNotification(false)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={() => setShowNotification(false)} severity="info">
+          {notificationMessage}
+        </Alert>
+      </Snackbar>
     </Container>
   );
 };
