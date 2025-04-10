@@ -30,9 +30,9 @@ services:
     env: node
     buildCommand: |
       cd frontend
-      export NODE_OPTIONS=--openssl-legacy-provider
-      npm ci
-      npm run build
+      export NODE_OPTIONS="--max-old-space-size=512 --openssl-legacy-provider"
+      export GENERATE_SOURCEMAP=false
+      ./build.sh
     startCommand: cd frontend && npx serve -s build -l $PORT
     envVars:
       - key: NODE_VERSION

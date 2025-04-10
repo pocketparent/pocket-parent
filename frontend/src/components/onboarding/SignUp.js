@@ -7,9 +7,9 @@ import {
   Box,
   TextField,
   CircularProgress,
-  Snackbar,
-  Alert
+  Snackbar
 } from '@material-ui/core';
+import Alert from '@material-ui/lab/Alert';
 import { makeStyles } from '@material-ui/core/styles';
 import ApiService from '../../services/ApiService';
 
