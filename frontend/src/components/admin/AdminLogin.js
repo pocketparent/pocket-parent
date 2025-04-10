@@ -1,503 +1,314 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Typography, 
+  Button, 
+  Container, 
   Paper, 
   Box,
-  Container,
-  Grid,
-  Card,
-  CardContent,
-  CardActions,
-  Button,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   TextField,
-  IconButton,
-  Tabs,
-  Tab,
-  Divider,
   CircularProgress,
-  Snackbar,
-  AppBar,
-  Toolbar
+  Snackbar
 } from '@material-ui/core';
-import { makeStyles } from '@material-ui/core/styles';
-import SearchIcon from '@material-ui/icons/Search';
-import PersonIcon from '@material-ui/icons/Person';
-import SupervisorAccountIcon from '@material-ui/icons/SupervisorAccount';
-import ExitToAppIcon from '@material-ui/icons/ExitToApp';
-import DashboardIcon from '@material-ui/icons/Dashboard';
-import PeopleIcon from '@material-ui/icons/People';
-import MessageIcon from '@material-ui/icons/Message';
-import SettingsIcon from '@material-ui/icons/Settings';
-import TrendingUpIcon from '@material-ui/icons/TrendingUp';
 import Alert from '@material-ui/lab/Alert';
+import { makeStyles } from '@material-ui/core/styles';
 import ApiService from '../../services/ApiService';
 
 const useStyles = makeStyles((theme) => ({
-  root: {
-    display: 'flex',
-    flexDirection: 'column',
-    minHeight: '100vh',
-    backgroundColor: '#f5f5f5',
-  },
-  appBar: {
-    backgroundColor: '#6b9080',
-    color: '#fff',
-  },
-  toolbar: {
-    display: 'flex',
-    justifyContent: 'space-between',
-  },
-  logo: {
-    height: 40,
-    marginRight: theme.spacing(2),
-  },
-  title: {
-    flexGrow: 1,
-  },
-  content: {
-    flexGrow: 1,
-    padding: theme.spacing(3),
-  },
   container: {
-    marginTop: theme.spacing(4),
-    marginBottom: theme.spacing(4),
-  },
-  paper: {
-    padding: theme.spacing(3),
-    borderRadius: 16,
-  },
-  card: {
-    height: '100%',
     display: 'flex',
     flexDirection: 'column',
-    borderRadius: 16,
-  },
-  cardContent: {
-    flexGrow: 1,
-  },
-  statValue: {
-    fontSize: '2rem',
-    fontWeight: 'bold',
-    marginBottom: theme.spacing(1),
-  },
-  statLabel: {
-    color: theme.palette.text.secondary,
-  },
-  tableContainer: {
-    marginTop: theme.spacing(3),
-    borderRadius: 16,
-    maxHeight: 440,
-  },
-  searchBar: {
-    marginBottom: theme.spacing(3),
-    display: 'flex',
-    alignItems: 'center',
-  },
-  searchInput: {
-    flexGrow: 1,
-    marginRight: theme.spacing(2),
-  },
-  tabs: {
-    marginBottom: theme.spacing(3),
-  },
-  tab: {
-    minWidth: 100,
-  },
-  tabPanel: {
-    padding: theme.spacing(2, 0),
-  },
-  divider: {
-    margin: theme.spacing(3, 0),
-  },
-  actionButton: {
-    margin: theme.spacing(0, 0.5),
-  },
-  userAvatar: {
-    backgroundColor: theme.palette.primary.main,
-    color: '#fff',
-    width: 32,
-    height: 32,
-    display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
+    padding: theme.spacing(4),
+    height: '100vh',
+    backgroundColor: '#FAF9F6',
+  },
+  paper: {
+    padding: theme.spacing(4),
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    borderRadius: 16,
+    boxShadow: '0px 4px 20px rgba(0, 0, 0, 0.05)',
+    maxWidth: 500,
+    width: '100%',
+  },
+  logo: {
+    width: 80,
+    height: 80,
+    marginBottom: theme.spacing(2),
+  },
+  title: {
+    fontWeight: 700,
+    marginBottom: theme.spacing(1),
+    color: '#333',
+  },
+  subtitle: {
+    marginBottom: theme.spacing(4),
+    textAlign: 'center',
+    color: '#555',
+  },
+  form: {
+    width: '100%',
+    marginTop: theme.spacing(2),
+  },
+  textField: {
+    marginTop: theme.spacing(2),
+    marginBottom: theme.spacing(2),
+  },
+  loginButton: {
+    marginTop: theme.spacing(4),
+    padding: theme.spacing(1.5, 4),
+    borderRadius: 8,
+    backgroundColor: '#6b9080',
+    color: '#fff',
+    '&:hover': {
+      backgroundColor: '#5a7a6d',
+    },
+  },
+  errorMessage: {
+    color: theme.palette.error.main,
+    marginTop: theme.spacing(2),
+    textAlign: 'center',
+  },
+  connectionStatus: {
+    position: 'absolute',
+    top: theme.spacing(2),
+    right: theme.spacing(2),
+    padding: theme.spacing(1, 2),
+    borderRadius: 20,
+    fontSize: '0.75rem',
+    display: 'flex',
+    alignItems: 'center',
+  },
+  statusIndicator: {
+    width: 10,
+    height: 10,
     borderRadius: '50%',
     marginRight: theme.spacing(1),
   },
-  userInfo: {
-    display: 'flex',
-    alignItems: 'center',
+  connected: {
+    backgroundColor: '#4caf50',
   },
-  loadingContainer: {
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    height: 400,
+  disconnected: {
+    backgroundColor: '#f44336',
   },
+  helpText: {
+    marginTop: theme.spacing(2),
+    color: '#666',
+    fontSize: '0.85rem',
+    textAlign: 'center',
+  }
 }));
 
-function TabPanel(props) {
-  const { children, value, index, ...other } = props;
-
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`admin-tabpanel-${index}`}
-      aria-labelledby={`admin-tab-${index}`}
-      {...other}
-    >
-      {value === index && (
-        <Box className={props.className}>
-          {children}
-        </Box>
-      )}
-    </div>
-  );
-}
-
-const AdminDashboard = ({ adminData, onLogout }) => {
+const AdminLogin = ({ onLogin }) => {
   const classes = useStyles();
-  const [tabValue, setTabValue] = useState(0);
-  const [users, setUsers] = useState([]);
-  const [smsActivity, setSmsActivity] = useState([]);
-  const [metrics, setMetrics] = useState({
-    totalUsers: 0,
-    activeUsers: 0,
-    trialUsers: 0,
-    totalChildren: 0,
-    dailyLogs: 0,
-    smsActivity: 0,
-    churnRate: '0%',
-    conversionRate: '0%',
-  });
-  const [searchTerm, setSearchTerm] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [notification, setNotification] = useState({ open: false, message: '', severity: 'info' });
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [impersonatedUser, setImpersonatedUser] = useState(null);
+  const [email, setEmail] = useState('admin@hatchling.com'); // Pre-fill with default admin email
+  const [password, setPassword] = useState(''); // Don't pre-fill password for security
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [apiConnected, setApiConnected] = useState(false);
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [snackbarSeverity, setSnackbarSeverity] = useState('info');
 
-  // Fetch data on component mount
+  // Check API connectivity on component mount
   useEffect(() => {
-    fetchDashboardData();
-  }, []);
-
-  const fetchDashboardData = async () => {
-    setLoading(true);
-    try {
-      // Fetch users data
-      const usersResponse = await ApiService.getAllUsers();
-      if (usersResponse && Array.isArray(usersResponse)) {
-        setUsers(usersResponse);
-        
-        // Calculate metrics from user data
-        const activeUsers = usersResponse.filter(user => user.subscription_status === 'active');
-        const trialUsers = usersResponse.filter(user => user.subscription_status === 'trial');
-        
-        // Count total children
-        let totalChildren = 0;
-        usersResponse.forEach(user => {
-          if (user.children && Array.isArray(user.children)) {
-            totalChildren += user.children.length;
-          }
-        });
-        
-        // Calculate conversion rate
-        const conversionRate = usersResponse.length > 0 
-          ? Math.round((activeUsers.length / usersResponse.length) * 100) + '%'
-          : '0%';
-        
-        // Fetch SMS activity
-        const smsResponse = await ApiService.getAllSmsActivity();
-        if (smsResponse && Array.isArray(smsResponse)) {
-          setSmsActivity(smsResponse);
-          
-          // Update metrics with real data
-          setMetrics({
-            totalUsers: usersResponse.length,
-            activeUsers: activeUsers.length,
-            trialUsers: trialUsers.length,
-            totalChildren: totalChildren,
-            dailyLogs: smsResponse.length,
-            smsActivity: smsResponse.length,
-            churnRate: '3.2%', // This would need a more complex calculation in a real app
-            conversionRate: conversionRate,
-          });
+    const checkApiConnection = async () => {
+      try {
+        const isConnected = await ApiService.checkHealth();
+        setApiConnected(isConnected);
+        if (!isConnected) {
+          setSnackbarMessage('Unable to connect to the server. Login functionality may not work properly.');
+          setSnackbarSeverity('warning');
+          setSnackbarOpen(true);
         }
+      } catch (error) {
+        console.error('API connection check failed:', error);
+        setApiConnected(false);
+        setSnackbarMessage('Unable to connect to the server. Login functionality may not work properly.');
+        setSnackbarSeverity('warning');
+        setSnackbarOpen(true);
       }
-    } catch (error) {
-      console.error('Error fetching dashboard data:', error);
-      setNotification({
-        open: true,
-        message: 'Error loading dashboard data. Using sample data instead.',
-        severity: 'error'
-      });
-      
-      // Fall back to sample data if API fails
-      loadSampleData();
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadSampleData = () => {
-    // Sample data for demonstration when API fails
-    const MOCK_USERS = [
-      { id: 'user_001', name: 'Sarah Johnson', email: 'sarah@example.com', subscription_status: 'active', subscription_plan: 'premium', children: 2, last_active: '2025-04-09T10:23:45Z' },
-      { id: 'user_002', name: 'Michael Chen', email: 'michael@example.com', subscription_status: 'trial', subscription_plan: 'standard', children: 1, last_active: '2025-04-08T15:12:30Z' },
-      { id: 'user_003', name: 'Jessica Williams', email: 'jessica@example.com', subscription_status: 'active', subscription_plan: 'basic', children: 1, last_active: '2025-04-09T08:45:12Z' },
-      { id: 'user_004', name: 'David Rodriguez', email: 'david@example.com', subscription_status: 'inactive', subscription_plan: 'standard', children: 3, last_active: '2025-04-05T11:30:22Z' },
-      { id: 'user_005', name: 'Emily Taylor', email: 'emily@example.com', subscription_status: 'trial', subscription_plan: 'premium', children: 2, last_active: '2025-04-09T09:15:40Z' },
-    ];
-
-    const MOCK_SMS_ACTIVITY = [
-      { id: 'sms_001', user_id: 'user_001', from_number: '+15551234567', message: 'Baby napped from 2pm to 3:30pm', timestamp: '2025-04-09T15:30:00Z' },
-      { id: 'sms_002', user_id: 'user_002', from_number: '+15559876543', message: 'Feeding at 12:15pm, 6oz formula', timestamp: '2025-04-09T12:20:00Z' },
-      { id: 'sms_003', user_id: 'user_001', from_number: '+15551234567', message: 'Diaper change at 4pm, wet only', timestamp: '2025-04-09T16:05:00Z' },
-      { id: 'sms_004', user_id: 'user_003', from_number: '+15554567890', message: 'Baby woke up at 7:30am', timestamp: '2025-04-09T07:35:00Z' },
-      { id: 'sms_005', user_id: 'user_005', from_number: '+15552223333', message: 'Started bedtime routine at 7pm', timestamp: '2025-04-08T19:05:00Z' },
-    ];
-
-    const MOCK_METRICS = {
-      totalUsers: 127,
-      activeUsers: 98,
-      trialUsers: 42,
-      totalChildren: 183,
-      dailyLogs: 342,
-      smsActivity: 215,
-      churnRate: '3.2%',
-      conversionRate: '68%',
     };
 
-    setUsers(MOCK_USERS);
-    setSmsActivity(MOCK_SMS_ACTIVITY);
-    setMetrics(MOCK_METRICS);
-  };
+    checkApiConnection();
+    
+    // Set up periodic connection checks
+    const intervalId = setInterval(checkApiConnection, 30000); // Check every 30 seconds
+    
+    return () => clearInterval(intervalId);
+  }, []);
 
-  const handleTabChange = (event, newValue) => {
-    setTabValue(newValue);
-  };
-
-  const handleSearch = (event) => {
-    setSearchTerm(event.target.value);
-  };
-
-  const handleCloseNotification = () => {
-    setNotification({ ...notification, open: false });
-  };
-
-  const handleImpersonateUser = async (user) => {
+  const handleLogin = async (e) => {
+    // Prevent default form submission behavior
+    if (e) e.preventDefault();
+    
+    if (!email || !password) {
+      setError('Please enter both email and password');
+      return;
+    }
+    
+    if (!apiConnected) {
+      setSnackbarMessage('Cannot log in while disconnected from the server. Please try again later.');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+      return;
+    }
+    
+    setLoading(true);
+    setError('');
+    
     try {
-      setLoading(true);
+      // Use the ApiService to authenticate
+      const response = await ApiService.login(email, password);
       
-      // In a real implementation, this would call an API endpoint to create an impersonation session
-      const impersonationResponse = await ApiService.impersonateUser(user.id);
-      
-      if (impersonationResponse && impersonationResponse.success) {
-        setImpersonatedUser(user);
-        setNotification({
-          open: true,
-          message: `Now impersonating ${user.name}. You can view the application as this user.`,
-          severity: 'info'
-        });
+      if (response && response.success) {
+        setSnackbarMessage('Login successful! Redirecting to admin dashboard...');
+        setSnackbarSeverity('success');
+        setSnackbarOpen(true);
         
-        // Switch to the impersonation tab
-        setTabValue(4);
+        // Wait a moment before redirecting
+        setTimeout(() => {
+          onLogin(response.user);
+        }, 1000);
       } else {
-        throw new Error('Failed to impersonate user');
+        // Handle unsuccessful login
+        throw new Error(response?.error || 'Invalid email or password');
       }
     } catch (error) {
-      console.error('Error impersonating user:', error);
-      setNotification({
-        open: true,
-        message: `Error impersonating user: ${error.message || 'Unknown error'}`,
-        severity: 'error'
-      });
+      let errorMessage = 'Login failed. Please try again.';
+      
+      // Extract more specific error message if available
+      if (error.data && error.data.error) {
+        errorMessage = error.data.error;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      setError(errorMessage);
+      setSnackbarMessage(errorMessage);
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+      console.error('Login error:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleEndImpersonation = () => {
-    setImpersonatedUser(null);
-    setNotification({
-      open: true,
-      message: 'Impersonation session ended',
-      severity: 'info'
-    });
-    setTabValue(0); // Return to dashboard
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      handleLogin();
+    }
   };
 
-  const handleResetAccount = (user) => {
-    setNotification({
-      open: true,
-      message: `Account reset for ${user.name}`,
-      severity: 'success'
-    });
-    // In a real app, this would reset the user's account
+  const handleSnackbarClose = (event, reason) => {
+    if (reason === 'clickaway') {
+      return;
+    }
+    setSnackbarOpen(false);
   };
 
-  const handleViewUserDashboard = (user) => {
-    setSelectedUser(user);
-    setTabValue(4); // Switch to User Dashboard tab
-  };
-
-  const filteredUsers = users.filter(user => 
-    user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const renderDashboard = () => (
-    <Grid container spacing={3}>
-      <Grid item xs={12} md={3}>
-        <Card className={classes.card}>
-          <CardContent className={classes.cardContent}>
-            <Typography variant="h6" gutterBottom>
-              Total Users
-            </Typography>
-            <Typography className={classes.statValue} color="primary">
-              {metrics.totalUsers}
-            </Typography>
-            <Typography className={classes.statLabel}>
-              {metrics.activeUsers} active
-            </Typography>
-          </CardContent>
-        </Card>
-      </Grid>
-      <Grid item xs={12} md={3}>
-        <Card className={classes.card}>
-          <CardContent className={classes.cardContent}>
-            <Typography variant="h6" gutterBottom>
-              Trial Users
-            </Typography>
-            <Typography className={classes.statValue} color="primary">
-              {metrics.trialUsers}
-            </Typography>
-            <Typography className={classes.statLabel}>
-              Conversion: {metrics.conversionRate}
-            </Typography>
-          </CardContent>
-        </Card>
-      </Grid>
-      <Grid item xs={12} md={3}>
-        <Card className={classes.card}>
-          <CardContent className={classes.cardContent}>
-            <Typography variant="h6" gutterBottom>
-              Daily Logs
-            </Typography>
-            <Typography className={classes.statValue} color="primary">
-              {metrics.dailyLogs}
-            </Typography>
-            <Typography className={classes.statLabel}>
-              {metrics.smsActivity} via SMS
-            </Typography>
-          </CardContent>
-        </Card>
-      </Grid>
-      <Grid item xs={12} md={3}>
-        <Card className={classes.card}>
-          <CardContent className={classes.cardContent}>
-            <Typography variant="h6" gutterBottom>
-              Churn Rate
-            </Typography>
-            <Typography className={classes.statValue} color="primary">
-              {metrics.churnRate}
-            </Typography>
-            <Typography className={classes.statLabel}>
-              Last 30 days
-            </Typography>
-          </CardContent>
-        </Card>
-      </Grid>
-      <Grid item xs={12}>
-        <Paper className={classes.paper}>
-          <Typography variant="h6" gutterBottom>
-            Recent User Activity
-          </Typography>
-          <TableContainer className={classes.tableContainer}>
-            <Table stickyHeader>
-              <TableHead>
-                <TableRow>
-                  <TableCell>User</TableCell>
-                  <TableCell>Last Active</TableCell>
-                  <TableCell>Subscription</TableCell>
-                  <TableCell>Children</TableCell>
-                  <TableCell>Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {users.slice(0, 5).map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell>
-                      <div className={classes.userInfo}>
-                        <div className={classes.userAvatar}>
-                          {user.name.charAt(0)}
-                        </div>
-                        <div>
-                          <Typography variant="body2">{user.name}</Typography>
-                          <Typography variant="caption" color="textSecondary">{user.email}</Typography>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {new Date(user.last_active).toLocaleString()}
-                    </TableCell>
-                    <TableCell>
-                      <Typography
-                        variant="body2"
-                        style={{
-                          color: user.subscription_status === 'active' ? '#4caf50' :
-                                user.subscription_status === 'trial' ? '#ff9800' : '#f44336'
-                        }}
-                      >
-                        {user.subscription_status.charAt(0).toUpperCase() + user.subscription_status.slice(1)} ({user.subscription_plan})
-                      </Typography>
-                    </TableCell>
-                    <TableCell>{user.children}</TableCell>
-                    <TableCell>
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        color="primary"
-                        className={classes.actionButton}
-                        onClick={() => handleViewUserDashboard(user)}
-                      >
-                        View
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Paper>
-      </Grid>
-    </Grid>
-  );
-
-  const renderUsers = () => (
-    <>
-      <div className={classes.searchBar}>
-        <TextField
-          className={classes.searchInput}
-          variant="outlined"
-          placeholder="Search users by name or email"
-          InputProps={{
-            startAdornment: <SearchIcon color="action" style={{ marginRight: 8 }} />,
-          }}
-          value={searchTerm}
-          onChange={handleSearch}
+  return (
+    <Container className={classes.container}>
+      <Box 
+        className={classes.connectionStatus}
+        style={{ backgroundColor: apiConnected ? '#e8f5e9' : '#ffebee' }}
+      >
+        <Box 
+          className={`${classes.statusIndicator} ${apiConnected ? classes.connected : classes.disconnected}`}
         />
-      </div>
-      <Paper className={classes.paper}>
-        <TableContainer className={classes.tableContainer}>
-          <Table stickyHeader>
-            <TableHead>
-              <TableRow>
-                
-(Content truncated due to size limit. Use line ranges to read in chunks)
+        <Typography variant="caption">
+          {apiConnected ? 'Connected' : 'Disconnected'}
+        </Typography>
+      </Box>
+      
+      <Paper className={classes.paper} elevation={0}>
+        <Box display="flex" flexDirection="column" alignItems="center">
+          <img 
+            src="/logo.png" 
+            alt="Hatchling Logo" 
+            className={classes.logo} 
+            onError={(e) => {
+              e.target.onerror = null;
+              e.target.src = 'https://via.placeholder.com/80?text=Hatchling';
+            }}
+          />
+          <Typography variant="h4" className={classes.title}>
+            Admin Login
+          </Typography>
+          <Typography variant="body1" className={classes.subtitle}>
+            Secure access for Hatchling administrators
+          </Typography>
+        </Box>
+
+        {/* Wrap form elements in a form tag to enable proper form submission */}
+        <form onSubmit={handleLogin} className={classes.form}>
+          <Box width="100%">
+            <TextField
+              className={classes.textField}
+              label="Email"
+              variant="outlined"
+              fullWidth
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="admin@hatchling.com"
+              onKeyPress={handleKeyPress}
+              disabled={loading}
+              error={!!error && !email}
+              autoFocus
+            />
+            
+            <TextField
+              className={classes.textField}
+              label="Password"
+              variant="outlined"
+              fullWidth
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter your password"
+              onKeyPress={handleKeyPress}
+              disabled={loading}
+              error={!!error && !password}
+            />
+            
+            {error && (
+              <Typography variant="body2" className={classes.errorMessage}>
+                {error}
+              </Typography>
+            )}
+            
+            <Button
+              className={classes.loginButton}
+              variant="contained"
+              fullWidth
+              type="submit"
+              disabled={loading || !apiConnected}
+            >
+              {loading ? <CircularProgress size={24} color="inherit" /> : 'Login'}
+            </Button>
+            
+            <Typography variant="body2" className={classes.helpText}>
+              Default admin credentials: admin@hatchling.com / Hatchling2025!
+            </Typography>
+          </Box>
+        </form>
+      </Paper>
+      
+      <Snackbar 
+        open={snackbarOpen} 
+        autoHideDuration={6000} 
+        onClose={handleSnackbarClose}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={handleSnackbarClose} severity={snackbarSeverity}>
+          {snackbarMessage}
+        </Alert>
+      </Snackbar>
+    </Container>
+  );
+};
+
+export default AdminLogin;
