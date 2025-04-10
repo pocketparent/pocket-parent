@@ -173,7 +173,10 @@ const SignUp = ({ onSignUpComplete }) => {
     return true;
   };
 
-  const handleSignUp = async () => {
+  const handleSignUp = async (e) => {
+    // Prevent default form submission behavior
+    if (e) e.preventDefault();
+    
     if (!validateForm()) return;
     
     if (!apiConnected) {
@@ -272,90 +275,94 @@ const SignUp = ({ onSignUpComplete }) => {
           </Typography>
         </Box>
 
-        <Box width="100%">
-          <TextField
-            className={classes.textField}
-            label="Name"
-            variant="outlined"
-            fullWidth
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Your full name"
-            disabled={loading}
-            error={!!error && !name}
-          />
-          
-          <TextField
-            className={classes.textField}
-            label="Email"
-            variant="outlined"
-            fullWidth
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="your.email@example.com"
-            disabled={loading}
-            error={!!error && !email}
-          />
-          
-          <TextField
-            className={classes.textField}
-            label="Password"
-            variant="outlined"
-            fullWidth
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Create a password"
-            disabled={loading}
-            error={!!error && (!password || password.length < 8)}
-            helperText={password && password.length < 8 ? "Password must be at least 8 characters" : ""}
-          />
-          
-          <TextField
-            className={classes.textField}
-            label="Confirm Password"
-            variant="outlined"
-            fullWidth
-            type="password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            placeholder="Confirm your password"
-            disabled={loading}
-            error={!!error && (!confirmPassword || password !== confirmPassword)}
-          />
-          
-          {error && (
-            <Typography variant="body2" className={classes.errorMessage}>
-              {error}
+        {/* Wrap form elements in a form tag to enable proper form submission */}
+        <form onSubmit={handleSignUp} className={classes.form}>
+          <Box width="100%">
+            <TextField
+              className={classes.textField}
+              label="Name"
+              variant="outlined"
+              fullWidth
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Your full name"
+              disabled={loading}
+              error={!!error && !name}
+              autoFocus
+            />
+            
+            <TextField
+              className={classes.textField}
+              label="Email"
+              variant="outlined"
+              fullWidth
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="your.email@example.com"
+              disabled={loading}
+              error={!!error && !email}
+            />
+            
+            <TextField
+              className={classes.textField}
+              label="Password"
+              variant="outlined"
+              fullWidth
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Create a password"
+              disabled={loading}
+              error={!!error && (!password || password.length < 8)}
+              helperText={password && password.length < 8 ? "Password must be at least 8 characters" : ""}
+            />
+            
+            <TextField
+              className={classes.textField}
+              label="Confirm Password"
+              variant="outlined"
+              fullWidth
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="Confirm your password"
+              disabled={loading}
+              error={!!error && (!confirmPassword || password !== confirmPassword)}
+            />
+            
+            {error && (
+              <Typography variant="body2" className={classes.errorMessage}>
+                {error}
+              </Typography>
+            )}
+            
+            {success && (
+              <Typography variant="body2" className={classes.successMessage}>
+                {success}
+              </Typography>
+            )}
+            
+            <Button
+              className={classes.signupButton}
+              variant="contained"
+              color="primary"
+              fullWidth
+              type="submit"
+              disabled={loading || !apiConnected}
+            >
+              {loading ? <CircularProgress size={24} /> : 'Sign Up'}
+            </Button>
+            
+            <Typography 
+              variant="body2" 
+              className={classes.loginLink}
+              align="center"
+            >
+              Already have an account? Log in
             </Typography>
-          )}
-          
-          {success && (
-            <Typography variant="body2" className={classes.successMessage}>
-              {success}
-            </Typography>
-          )}
-          
-          <Button
-            className={classes.signupButton}
-            variant="contained"
-            color="primary"
-            fullWidth
-            onClick={handleSignUp}
-            disabled={loading || !apiConnected}
-          >
-            {loading ? <CircularProgress size={24} /> : 'Sign Up'}
-          </Button>
-          
-          <Typography 
-            variant="body2" 
-            className={classes.loginLink}
-            align="center"
-          >
-            Already have an account? Log in
-          </Typography>
-        </Box>
+          </Box>
+        </form>
       </Paper>
       
       <Snackbar 
