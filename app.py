@@ -4,10 +4,6 @@ import os
 # Add the backend directory to the Python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), 'backend')))
 
-# Import eventlet and monkey patch before any other imports
-import eventlet
-eventlet.monkey_patch()
-
 # Import the Flask app from the backend
 from backend.app import app
 
